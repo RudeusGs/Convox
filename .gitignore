@@ -1,0 +1,11 @@
+﻿server/.vs
+server/server/bin
+server/server/obj
+server/server.Domain/bin
+server/server.Domain/obj
+server/server.Infastructure/bin
+server/server.Infastructure/obj
+server/server.Service/bin
+server/server.Service/obj
+server/server.Tests.Unit/bin
+server/server.Tests.Unit/obj
