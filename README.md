@@ -2,7 +2,7 @@
 
 **Convox** is a modern, lightweight chat application inspired by Discord. Built with **ASP.NET Core** and **Vue.js**, it delivers seamless real-time messaging and peer-to-peer voice calls, perfect for teams, friends, or gaming communities.
 
-![Convox Demo](docs/screenshots/demo.png) *(Screenshots coming soon)*
+![Convox Demo](docs/screenshots/demo.png)
 
 ![.NET](https://img.shields.io/badge/.NET-8-blueviolet)
 ![Vue.js](https://img.shields.io/badge/Vue.js-3-4FC08D)
