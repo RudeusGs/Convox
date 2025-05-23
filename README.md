@@ -63,7 +63,7 @@ cd Convox
 ```
 - Configure the database connection in appsettings.json.
 - Run migrations (if applicable): dotnet ef database update.
-# Frontend
+#### 3. Frontend
 ```bash
 - cd client
 - npm install
