@@ -23,11 +23,11 @@
 
 ## 📁 Project Structure
 
-Lynqis/
-├── client/ # Vue.js frontend
-├── server/ # ASP.NET Core backend
-├── docs/ # Documentation and planning
-└── README.md
+- Lynqis/
+- ├── client/ # Vue.js frontend
+- ├── server/ # ASP.NET Core backend
+- ├── docs/ # Documentation and planning
+- └── README.md
 
 ## 🚀 Getting Started
 
@@ -40,14 +40,14 @@ Lynqis/
 
 ### Setup
 # Backend
-cd server
-dotnet restore
-dotnet run
+- cd server
+- dotnet restore
+- dotnet run
 
 # Frontend
-cd client
-npm install
-npm run dev
+- cd client
+- npm install
+- npm run dev
 📸 Screenshots
 Add screenshots of your app interface here (coming soon).
 
