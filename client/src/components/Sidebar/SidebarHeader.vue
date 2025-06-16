@@ -7,7 +7,6 @@
       </div>
       <div class="workspace-info">
         <h2 class="workspace-name">Convox</h2>
-        <span class="workspace-status">{{ onlineMembers }} online</span>
       </div>
     </div>
     <button class="menu-toggle" @click="toggleSidebar">
@@ -18,10 +17,6 @@
 
 <script setup>
 defineProps({
-  onlineMembers: {
-    type: Number,
-    default: 47
-  }
 })
 
 const toggleSidebar = () => {

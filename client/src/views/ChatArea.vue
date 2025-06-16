@@ -23,6 +23,25 @@
         <button class="header-btn" title="Search">
           <i class="bi bi-search"></i>
         </button>
+        <div class="notification-wrapper">
+          <button 
+            class="header-btn notification-btn" 
+            :class="{ active: showNotifications }"
+            title="Thông báo"
+            @click="toggleNotifications"
+          >
+            <i class="bi bi-bell-fill"></i>
+            <div v-if="unreadNotificationsCount > 0" class="notification-badge">
+              {{ unreadNotificationsCount }}
+            </div>
+          </button>
+          <NotificationDropdown
+            :isOpen="showNotifications"
+            :notifications="notifications"
+            @clearAllNotifications="clearAllNotifications"
+            @dismissNotification="dismissNotification"
+          />
+        </div>
       </div>
     </div>
 
@@ -80,8 +99,9 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import NotificationDropdown from '@/components/NotificationDropdown.vue'
 
 // Props từ router
 const props = defineProps({
@@ -98,6 +118,7 @@ const newMessage = ref('')
 const messageInput = ref(null)
 const messagesContainer = ref(null)
 const showMemberList = ref(false)
+const showNotifications = ref(false)
 
 // Sample messages data
 const messages = ref([
@@ -119,6 +140,50 @@ const messages = ref([
   }
 ])
 
+// Notifications data
+const notifications = ref([
+  {
+    id: 'notif1',
+    title: 'Tin nhắn mới',
+    message: 'Alice đã gửi tin nhắn trong #general',
+    time: '2 phút trước',
+    icon: 'bi-chat-dots',
+    unread: true
+  },
+  {
+    id: 'notif2',
+    title: 'Thành viên mới',
+    message: 'Bob Smith đã tham gia workspace',
+    time: '1 giờ trước',
+    icon: 'bi-person-plus',
+    unread: true
+  },
+  {
+    id: 'notif3',
+    title: 'Cuộc họp sắp tới',
+    message: 'Cuộc họp nhóm bắt đầu trong 15 phút',
+    time: '5 phút trước',
+    icon: 'bi-calendar-event',
+    unread: false
+  },
+  {
+    id: 'notif4',
+    title: 'Mention trong #frontend',
+    message: 'Carol đã mention bạn trong cuộc thảo luận',
+    time: '10 phút trước',
+    icon: 'bi-at',
+    unread: true
+  },
+  {
+    id: 'notif5',
+    title: 'Voice channel',
+    message: 'David đã tham gia Họp nhóm',
+    time: '15 phút trước',
+    icon: 'bi-volume-up',
+    unread: false
+  }
+])
+
 // Computed
 const currentChannelName = computed(() => {
   return props.channelId || route.params.channelId || 'general'
@@ -132,6 +197,10 @@ const currentChannelTopic = computed(() => {
     announcements: 'Important announcements and updates'
   }
   return topics[currentChannelName.value] || 'Channel topic'
+})
+
+const unreadNotificationsCount = computed(() => {
+  return notifications.value.filter(notif => notif.unread).length
 })
 
 // Methods
@@ -176,9 +245,39 @@ const toggleMemberList = () => {
   showMemberList.value = !showMemberList.value
 }
 
+const toggleNotifications = () => {
+  showNotifications.value = !showNotifications.value
+}
+
+const clearAllNotifications = () => {
+  notifications.value.forEach(notif => notif.unread = false)
+}
+
+const dismissNotification = (notifId) => {
+  const index = notifications.value.findIndex(n => n.id === notifId)
+  if (index > -1) {
+    notifications.value.splice(index, 1)
+  }
+}
+
+// Close notifications when clicking outside
+const handleClickOutside = (event) => {
+  const notificationWrapper = event.target.closest('.notification-wrapper')
+  if (!notificationWrapper && showNotifications.value) {
+    showNotifications.value = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
+
 // Watch for route changes
 watch(() => route.params, () => {
-  // Load messages for new channel
   console.log('Channel changed:', route.params)
 }, { immediate: true })
 </script>
@@ -237,6 +336,7 @@ watch(() => route.params, () => {
 .header-actions {
   display: flex;
   gap: 16px;
+  align-items: center;
 }
 
 .header-btn {
@@ -248,10 +348,34 @@ watch(() => route.params, () => {
   border-radius: 4px;
   transition: all 0.15s ease-out;
   font-size: 16px;
+  position: relative;
 }
 
 .header-btn:hover {
   color: #dcddde;
+}
+
+.notification-wrapper {
+  position: relative;
+}
+
+.notification-btn.active {
+  color: #5865f2;
+}
+
+.notification-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ed4245;
+  color: white;
+  font-size: 10px;
+  padding: 2px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+  line-height: 1;
+  font-weight: 600;
 }
 
 /* Messages Container */
