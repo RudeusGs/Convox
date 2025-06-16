@@ -39,13 +39,6 @@
         :onlineMembers="onlineMembers"
         :totalMembers="totalMembers"
       />
-      
-      <NotificationsSection 
-        v-if="activeTab === 'notifications'"
-        :notifications="notifications"
-        @clearAllNotifications="clearAllNotifications"
-        @dismissNotification="dismissNotification"
-      />
     </div>
 
     <UserProfile 
@@ -69,7 +62,6 @@ import NavigationTabs from './NavigationTabs.vue'
 import ChannelsSection from './ChannelsSection.vue'
 import DirectMessagesSection from './DirectMessagesSection.vue'
 import MembersSection from './MembersSection.vue'
-import NotificationsSection from './NotificationsSection.vue'
 import UserProfile from './UserProfile.vue'
 
 // State
@@ -102,8 +94,7 @@ const servers = ref([
 const tabs = ref([
   { id: 'channels', label: 'Kênh', icon: 'bi-hash', count: null },
   { id: 'messages', label: 'Tin nhắn', icon: 'bi-chat-dots', count: 3 },
-  { id: 'members', label: 'Thành viên', icon: 'bi-people', count: null },
-  { id: 'notifications', label: 'Thông báo', icon: 'bi-bell', count: 8 }
+  { id: 'members', label: 'Thành viên', icon: 'bi-people', count: null }
 ])
 
 const serversData = ref({
@@ -191,7 +182,7 @@ const directMessages = ref([
   {
     id: 'dm1',
     name: 'Alice Johnson',
-    avatar: '/api/placeholder/32/32',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s',
     status: 'online',
     lastMessage: 'Có thể gặp lúc 3h được không?',
     time: '2p',
@@ -201,7 +192,7 @@ const directMessages = ref([
   {
     id: 'dm2',
     name: 'Bob Smith',
-    avatar: '/api/placeholder/32/32',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s',
     status: 'away',
     lastMessage: 'Cảm ơn bạn!',
     time: '1h',
@@ -210,7 +201,7 @@ const directMessages = ref([
   {
     id: 'dm3',
     name: 'Carol Davis',
-    avatar: '/api/placeholder/32/32',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s',
     status: 'offline',
     lastMessage: 'Hẹn gặp lại sau',
     time: '1d',
@@ -219,7 +210,7 @@ const directMessages = ref([
   {
     id: 'dm4',
     name: 'David Wilson',
-    avatar: '/api/placeholder/32/32',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s',
     status: 'busy',
     lastMessage: 'Đang bận, chat sau nhé',
     time: '2h',
@@ -229,55 +220,12 @@ const directMessages = ref([
 ])
 
 const members = ref([
-  { id: 'member1', name: 'Alice Johnson', avatar: '/api/placeholder/32/32', status: 'online', role: 'Admin' },
-  { id: 'member2', name: 'Bob Smith', avatar: '/api/placeholder/32/32', status: 'away', role: 'Moderator' },
-  { id: 'member3', name: 'Carol Davis', avatar: '/api/placeholder/32/32', status: 'online', role: 'Member' },
-  { id: 'member4', name: 'David Wilson', avatar: '/api/placeholder/32/32', status: 'busy', role: 'Developer' },
-  { id: 'member5', name: 'Eve Brown', avatar: '/api/placeholder/32/32', status: 'online', role: 'Designer' },
-  { id: 'member6', name: 'Frank Miller', avatar: '/api/placeholder/32/32', status: 'offline', role: 'Member' }
-])
-
-const notifications = ref([
-  {
-    id: 'notif1',
-    title: 'Tin nhắn mới',
-    message: 'Alice đã gửi tin nhắn trong #general',
-    time: '2p',
-    icon: 'bi-chat-dots',
-    unread: true
-  },
-  {
-    id: 'notif2',
-    title: 'Thành viên mới',
-    message: 'Bob Smith đã tham gia workspace',
-    time: '1h',
-    icon: 'bi-person-plus',
-    unread: true
-  },
-  {
-    id: 'notif3',
-    title: 'Cuộc họp sắp tới',
-    message: 'Cuộc họp nhóm bắt đầu trong 15 phút',
-    time: '5p',
-    icon: 'bi-calendar-event',
-    unread: false
-  },
-  {
-    id: 'notif4',
-    title: 'Mention trong #frontend',
-    message: 'Carol đã mention bạn trong cuộc thảo luận',
-    time: '10p',
-    icon: 'bi-at',
-    unread: true
-  },
-  {
-    id: 'notif5',
-    title: 'Voice channel',
-    message: 'David đã tham gia Họp nhóm',
-    time: '15p',
-    icon: 'bi-volume-up',
-    unread: false
-  }
+  { id: 'member1', name: 'Alice Johnson', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s', status: 'online', role: 'Admin' },
+  { id: 'member2', name: 'Bob Smith', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s', status: 'away', role: 'Moderator' },
+  { id: 'member3', name: 'Carol Davis', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s', status: 'online', role: 'Member' },
+  { id: 'member4', name: 'David Wilson', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s', status: 'busy', role: 'Developer' },
+  { id: 'member5', name: 'Eve Brown', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s', status: 'online', role: 'Designer' },
+  { id: 'member6', name: 'Frank Miller', avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTYIINC3-ky-iCYztrC569il7bigltnIx8O1g&s', status: 'offline', role: 'Member' }
 ])
 
 // Methods
@@ -320,17 +268,6 @@ const selectDM = (dmId) => {
 
 const startNewDM = () => {
   console.log('Bắt đầu tin nhắn mới')
-}
-
-const clearAllNotifications = () => {
-  notifications.value.forEach(notif => notif.unread = false)
-}
-
-const dismissNotification = (notifId) => {
-  const index = notifications.value.findIndex(n => n.id === notifId)
-  if (index > -1) {
-    notifications.value.splice(index, 1)
-  }
 }
 
 const toggleProfileMenu = () => {
