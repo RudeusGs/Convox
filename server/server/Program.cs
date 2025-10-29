@@ -1,6 +1,7 @@
 using Microsoft.OpenApi.Models;
 using server.Infrastructure.Configurations;
 using server.Service.Configurations;
+using server.Hubs;
 namespace DragonAcc
 {
     public class Program
@@ -53,12 +54,14 @@ namespace DragonAcc
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowAnyCorsPolicy",
-                    builder => builder
-                        .AllowAnyOrigin()
+                    policy => policy
+                        .AllowAnyHeader()
                         .AllowAnyMethod()
-                        .AllowAnyHeader());
+                        .AllowCredentials()
+                        .WithOrigins("http://localhost:5173"));
             });
 
+            builder.Services.AddSignalR();
             builder.Services.AddApplicationServices();
             builder.Services.AddInfrastructureServices(builder.Configuration);
             var app = builder.Build();
@@ -74,7 +77,7 @@ namespace DragonAcc
             app.UseAuthorization();
 
             app.MapControllers();
-
+            app.MapHub<ChatHub>("/hubs/chat");
             app.Run();
         }
     }
