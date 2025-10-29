@@ -15,8 +15,8 @@ namespace server.Service.Configurations
             services.AddScoped<IJwtService, JwtService>();
 
             // User Management Service.
-            services.AddScoped<UserManager<Account>>();
-            services.AddScoped<SignInManager<Account>, SignInManager<Account>>();
+            services.AddScoped<UserManager<User>>();
+            services.AddScoped<SignInManager<User>, SignInManager<User>>();
             services.AddScoped<IUserService, UserService>();
 
             #endregion 

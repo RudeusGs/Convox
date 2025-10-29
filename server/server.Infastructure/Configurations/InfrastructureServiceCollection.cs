@@ -19,7 +19,7 @@ namespace server.Infrastructure.Configurations
             services.AddAppDbContext(configuration);
 
             // Thêm Identity
-            services.AddIdentity<Account, IdentityRole<int>>()
+            services.AddIdentity<User, IdentityRole<int>>()
                 .AddDefaultTokenProviders()
                 .AddEntityFrameworkStores<DataContext>();
 
