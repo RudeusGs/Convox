@@ -9,4 +9,5 @@ server/server.Service/bin
 server/server.Service/obj
 server/server.Tests.Unit/bin
 server/server.Tests.Unit/obj
+server\server.Infastructure\Migrations
 client/.vscode
