@@ -2,6 +2,7 @@ using Microsoft.OpenApi.Models;
 using server.Infrastructure.Configurations;
 using server.Service.Configurations;
 using server.Hubs;
+
 namespace DragonAcc
 {
     public class Program
@@ -10,19 +11,15 @@ namespace DragonAcc
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
             builder.Services.AddControllers();
-
-            // Configure Swagger/OpenAPI
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v1", new OpenApiInfo
                 {
                     Title = "Convox 2025 WEB API",
-                    Version = "v1",
+                    Version = "v1"
                 });
-
                 options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
                 {
                     Name = "Authorization",
@@ -30,7 +27,8 @@ namespace DragonAcc
                     Scheme = "Bearer",
                     BearerFormat = "JWT",
                     In = ParameterLocation.Header,
-                    Description = "Enter 'Bearer' [space] and then your valid token in the text input below.\r\n\r\nExample: \"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\"",
+                    Description =
+                        "Bearer {your JWT token}"
                 });
 
                 options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -44,26 +42,28 @@ namespace DragonAcc
                                 Id = "Bearer"
                             }
                         },
-                        new string[] {}
+                        Array.Empty<string>()
                     }
                 });
 
-                options.CustomSchemaIds(type => type.ToString());
+                options.CustomSchemaIds(type => type.FullName);
             });
 
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAnyCorsPolicy",
-                    policy => policy
+                options.AddPolicy("AllowAnyCorsPolicy", policy =>
+                {
+                    policy
+                        .WithOrigins("http://localhost:5173")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
-                        .AllowCredentials()
-                        .WithOrigins("http://localhost:5173"));
+                        .AllowCredentials();
+                });
             });
-
             builder.Services.AddSignalR();
             builder.Services.AddApplicationServices();
             builder.Services.AddInfrastructureServices(builder.Configuration);
+
             var app = builder.Build();
 
             if (app.Environment.IsDevelopment())
@@ -71,13 +71,15 @@ namespace DragonAcc
                 app.UseSwagger();
                 app.UseSwaggerUI();
             }
+
             app.UseHttpsRedirection();
             app.UseRouting();
             app.UseCors("AllowAnyCorsPolicy");
+            app.UseAuthentication();
             app.UseAuthorization();
-
             app.MapControllers();
             app.MapHub<ChatHub>("/hubs/chat");
+
             app.Run();
         }
     }
