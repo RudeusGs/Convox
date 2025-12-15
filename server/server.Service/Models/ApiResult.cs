@@ -5,6 +5,8 @@
         public bool IsSuccess { get; set; }
         public object? Data { get; set; }
         public string? Message { get; set; }
+        public string? ErrorCode { get; set; }
+        public IEnumerable<string>? Errors { get; set; }
 
         public ApiResult() { }
 
@@ -15,10 +17,14 @@
             Message = message;
         }
 
-        public static ApiResult Success(object? data = null)
-            => new ApiResult(true, data);
+        public static ApiResult Success(object? data = null, string? message = null)
+            => new ApiResult(true, data, message);
 
-        public static ApiResult Fail(string message)
-            => new ApiResult(false, null, message);
+        public static ApiResult Fail(string message, string? errorCode = null, IEnumerable<string>? errors = null)
+            => new ApiResult(false, null, message)
+            {
+                ErrorCode = errorCode,
+                Errors = errors
+            };
     }
 }

@@ -1,8 +1,10 @@
-﻿using server.Domain.Entities;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.DependencyInjection;
+using server.Domain.Entities;
 using server.Service.Common.IServices;
 using server.Service.Common.Services;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.DependencyInjection;
+using server.Service.Interfaces;
+using server.Service.Services;
 
 namespace server.Service.Configurations
 {
@@ -21,6 +23,7 @@ namespace server.Service.Configurations
 
             #endregion 
             services.AddHttpContextAccessor();
+            services.AddScoped<IAuthenticateService, AuthenticateService>();
             #region Business services
 
             #endregion
