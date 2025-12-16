@@ -6,7 +6,7 @@ namespace server.Domain.Entities
     {
         public int QuizId { get; set; } // Id quiz
         public int UserId { get; set; } // Ai trả lời
-        public string Answer { get; set; } // Trả lời
+        public string Answer { get; set; } // Câu trả lời
         public bool IsCorrect { get; set; } // Đúng / sai
     }
 }

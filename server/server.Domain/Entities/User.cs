@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using System.ComponentModel.DataAnnotations;
 namespace server.Domain.Entities
 {
     public class User : IdentityUser<int>

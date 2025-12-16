@@ -1,6 +1,5 @@
 ﻿using server.Domain.Base;
-
-
+using server.Domain.Enums;
 namespace server.Domain.Entities
 {
     // User <-> Room với role
@@ -8,8 +7,7 @@ namespace server.Domain.Entities
     {
         public int UserId { get; set; } // Id user
         public int RoomId { get; set; } // Id phòng
-        public string RoleName { get; set; } // GroupLeader, GroupDeputy, RegularUser
-        public bool IsTemporaryRole { get; set; } = false; // Role tạm thời
-        public DateTime? TemporaryExpire { get; set; } // Hết hạn role tạm thời
+        public RoomRole Role { get; set; } // quyền của thành viên
+        public bool IsBan { get; set; } = false; // nếu bị ban thì không được sử dụng phòng
     }
 }

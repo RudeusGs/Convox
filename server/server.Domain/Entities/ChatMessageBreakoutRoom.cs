@@ -2,10 +2,9 @@
 
 namespace server.Domain.Entities
 {
-    // Chat message
-    public class ChatMessage : EntityBase
+    public class ChatMessageBreakoutRoom : EntityBase
     {
-        public int RoomId { get; set; } // Id phòng gửi tin
+        public int BreakoutRoomId { get; set; } // Id phòng con gửi tin
         public int UserId { get; set; } // Người gửi
         public string Message { get; set; } // Nội dung
         public string MessageType { get; set; } // text, emoji, system...

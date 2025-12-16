@@ -27,7 +27,7 @@ namespace server.Infrastructure.Configurations
 
             services.AddAuthorization(options =>
             {
-                options.AddPolicy("Convox", policy => policy.RequireRole(RoleConstants.ADMIN, RoleConstants.GROUP_LEADER, RoleConstants.GROUP_DEPUTY, RoleConstants.REGULAR_USER));
+                options.AddPolicy("Convox", policy => policy.RequireRole(RoleConstants.ADMIN, RoleConstants.REGULAR_USER));
             });
 
             return services;
