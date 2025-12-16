@@ -9,6 +9,6 @@ namespace server.Domain.Entities
         public int UserId { get; set; } // Ai nộp
         public string FilePath { get; set; } // File nộp
         public decimal? Grade { get; set; } // Điểm
-        public string Feedback { get; set; } // Nhận xét
+        public string? Feedback { get; set; } // Nhận xét
     }
 }

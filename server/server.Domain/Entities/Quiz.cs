@@ -9,5 +9,6 @@ namespace server.Domain.Entities
         public string Question { get; set; } // Câu hỏi
         public string OptionsJson { get; set; } // Lưu các lựa chọn dưới dạng JSON
         public string CorrectAnswer { get; set; } // Đáp án
+        public int TimeQuestionSeconds { get; set; } // Thời gian hiển thị câu hỏi(giây)
     }
 }
