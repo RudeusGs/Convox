@@ -1,7 +1,8 @@
 using Microsoft.OpenApi.Models;
-using server.Infrastructure.Configurations;
-using server.Service.Configurations;
 using server.Hubs;
+using server.Infrastructure.Configurations;
+using server.Infrastructure.Extensions;
+using server.Service.Configurations;
 
 namespace DragonAcc
 {
@@ -10,7 +11,7 @@ namespace DragonAcc
         public static void Main(string[] args)
         {
             var builder = WebApplication.CreateBuilder(args);
-
+            builder.Services.AddRealtime();
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen(options =>
@@ -78,7 +79,7 @@ namespace DragonAcc
             app.UseAuthentication();
             app.UseAuthorization();
             app.MapControllers();
-            app.MapHub<ChatHub>("/hubs/chat");
+            app.MapRealtimeHubs();
 
             app.Run();
         }

@@ -24,6 +24,7 @@ namespace server.Service.Configurations
             #endregion 
             services.AddHttpContextAccessor();
             services.AddScoped<IAuthenticateService, AuthenticateService>();
+            services.AddScoped<IRoomService, RoomService>();
             #region Business services
 
             #endregion
