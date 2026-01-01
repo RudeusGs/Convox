@@ -12,3 +12,4 @@ server/server.Tests.Unit/obj
 server\server.Infastructure\Migrations
 client/.vscode
 server/server.Infastructure/Migrations
+server\server\appsettings.json

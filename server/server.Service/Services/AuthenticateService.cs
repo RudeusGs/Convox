@@ -159,7 +159,8 @@ namespace server.Service.Services
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-            var expires = DateTime.UtcNow.AddHours(7).AddDays(7);
+            var now = DateTime.UtcNow;
+            var expires = now.AddDays(7);
 
             var claims = BuildClaims(user, roles);
 
@@ -167,7 +168,7 @@ namespace server.Service.Services
                 issuer: _configuration["Jwt:ValidIssuer"],
                 audience: _configuration["Jwt:ValidAudience"],
                 claims: claims,
-                notBefore: DateTime.UtcNow.AddHours(7),
+                notBefore: now,
                 expires: expires,
                 signingCredentials: creds
             );

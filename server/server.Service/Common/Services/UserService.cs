@@ -1,5 +1,5 @@
-﻿using server.Service.Common.IServices;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
+using server.Service.Common.IServices;
 using System.Security.Claims;
 
 namespace server.Service.Common.Services
@@ -7,31 +7,21 @@ namespace server.Service.Common.Services
     public class UserService : IUserService
     {
         private readonly IHttpContextAccessor _httpContextAccessor;
-        private string _userName;
-        private int _userId;
 
         public UserService(IHttpContextAccessor httpContextAccessor)
         {
             _httpContextAccessor = httpContextAccessor;
-            _userName = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            int.TryParse(_httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Name), out _userId);
         }
 
-        public string UserName => _userName ?? _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-        public string RoleName => _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Role);
-        public int UserId => _userId;
+        private ClaimsPrincipal? User => _httpContextAccessor.HttpContext?.User;
 
-        public void DeserializeUserId(string userSerialized)
-        {
-            if (userSerialized == null)
-            {
-                return;
-            }
-            var userByte = Convert.FromBase64String(userSerialized);
-            using var mStream = new MemoryStream(userByte);
-            using var bReader = new BinaryReader(mStream);
-            var claims = new ClaimsPrincipal(bReader);
-            _userName = claims.FindFirstValue(ClaimTypes.NameIdentifier);
-        }   
+        public string RoleName => User?.FindFirstValue(ClaimTypes.Role);
+
+        public string UserName => User?.FindFirstValue(ClaimTypes.Name);
+
+        public int UserId =>
+            int.TryParse(User?.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
+
+        public void DeserializeUserId(string userSerialized) { }
     }
 }
