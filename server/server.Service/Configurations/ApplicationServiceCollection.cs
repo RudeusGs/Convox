@@ -4,7 +4,9 @@ using server.Domain.Entities;
 using server.Service.Common.IServices;
 using server.Service.Common.Services;
 using server.Service.Interfaces;
+using server.Service.Interfaces.Authentication;
 using server.Service.Services;
+using server.Service.Services.Authentication;
 
 namespace server.Service.Configurations
 {
@@ -16,18 +18,29 @@ namespace server.Service.Configurations
             // JWT
             services.AddScoped<IJwtService, JwtService>();
 
-            // User Management Service.
+            // User Management Service
             services.AddScoped<UserManager<User>>();
             services.AddScoped<SignInManager<User>, SignInManager<User>>();
             services.AddScoped<IUserService, UserService>();
 
-            #endregion 
+            #endregion
+
             services.AddHttpContextAccessor();
+
+            #region Authentication services
+            services.AddScoped<IJwtTokenService, JwtTokenService>();
+            services.AddScoped<IRoleManagementService, RoleManagementService>();
             services.AddScoped<IAuthenticateService, AuthenticateService>();
-            services.AddScoped<IRoomService, RoomService>();
-            #region Business services
 
             #endregion
+
+            #region Business services
+            services.AddScoped<IRoomService, RoomService>();
+            services.AddScoped<IBadgeService, BadgeService>();
+            services.AddScoped<IUserBadgeService, UserBadgeService>();
+
+            #endregion
+
             return services;
         }
     }

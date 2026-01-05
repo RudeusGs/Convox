@@ -14,7 +14,7 @@ namespace server.Service.Services
         {
         }
 
-        public async Task<ApiResult> AddRoom(AddRoomModel model)
+        public async Task<ApiResult> Add(AddRoomModel model)
         {
             if (model == null)
                 return ApiResult.Fail("Dữ liệu không hợp lệ", "VALIDATION_ERROR");
@@ -26,7 +26,6 @@ namespace server.Service.Services
             if (ownerId <= 0)
                 return ApiResult.Fail("Không xác định được người tạo phòng", "UNAUTHORIZED");
 
-            await using var tran = await _dataContext.Database.BeginTransactionAsync();
             try
             {
                 var room = new Room
@@ -41,20 +40,14 @@ namespace server.Service.Services
                 await _dataContext.Rooms.AddAsync(room);
                 await SaveChangesAsync();
 
-                await tran.CommitAsync();
-
                 return ApiResult.Success(room, "Tạo phòng thành công");
             }
             catch (Exception ex)
             {
-                await tran.RollbackAsync();
-                return ApiResult.Fail(
-                    "Tạo phòng thất bại",
-                    "INTERNAL_ERROR",
-                    new[] { ex.Message }
-                );
+                return ApiResult.Fail("Tạo phòng thất bại", "INTERNAL_ERROR");
             }
         }
+
 
         public async Task<ApiResult> Delete(int id)
         {
@@ -94,7 +87,7 @@ namespace server.Service.Services
         {
             try
             {
-                var result = await _dataContext.Rooms.ToListAsync();
+                var result = await _dataContext.Rooms.AsNoTracking().ToListAsync();
                 return ApiResult.Success(result, "Lấy tất cả thành công");
             }
             catch (Exception ex) 

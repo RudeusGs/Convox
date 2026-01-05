@@ -4,7 +4,7 @@ using server.Infrastructure.Configurations;
 using server.Infrastructure.Extensions;
 using server.Service.Configurations;
 
-namespace DragonAcc
+namespace server
 {
     public class Program
     {
