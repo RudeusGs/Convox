@@ -47,7 +47,7 @@ namespace server.Service.Services.Rooms
                 {
                     UserId = model.UserId,
                     RoomId = model.RoomId,
-                    Role = model.Role,
+                    Role = RoomRole.RegularUser,
                     IsBan = false,
                     CreatedDate = Now,
                 };
@@ -258,11 +258,12 @@ namespace server.Service.Services.Rooms
             if (model == null)
                 return ApiResult.Fail("Dữ liệu không hợp lệ", "VALIDATION_ERROR");
 
-            if (model.UserId <= 0)
-                return ApiResult.Fail("UserId không hợp lệ", "VALIDATION_ERROR");
-
             if (string.IsNullOrWhiteSpace(model.RoomCode))
                 return ApiResult.Fail("Mã phòng không được để trống", "VALIDATION_ERROR");
+
+            var userId = _userService.UserId;
+            if (userId <= 0)
+                return ApiResult.Fail("Bạn chưa đăng nhập", "UNAUTHORIZED");
 
             try
             {
@@ -287,7 +288,7 @@ namespace server.Service.Services.Rooms
                 }
 
                 var existing = await _dataContext.UserRooms
-                    .FirstOrDefaultAsync(x => x.UserId == model.UserId && x.RoomId == room.Id);
+                    .FirstOrDefaultAsync(x => x.UserId == userId && x.RoomId == room.Id);
 
                 if (existing != null)
                 {
@@ -299,15 +300,16 @@ namespace server.Service.Services.Rooms
 
                 var userRoom = new UserRoom
                 {
-                    UserId = model.UserId,
+                    UserId = userId,
                     RoomId = room.Id,
-                    Role = model.Role,
+                    Role = RoomRole.RegularUser,
                     IsBan = false,
                     CreatedDate = Now
                 };
 
                 await _dataContext.UserRooms.AddAsync(userRoom);
                 await _dataContext.SaveChangesAsync();
+
                 return ApiResult.Success(
                     new
                     {
@@ -326,6 +328,7 @@ namespace server.Service.Services.Rooms
                 return ApiResult.Fail("Tham gia phòng thất bại", "INTERNAL_ERROR", new[] { ex.Message });
             }
         }
+
 
         public async Task<ApiResult> RemoveUserFromRoom(int userId, int roomId)
         {
