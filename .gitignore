@@ -1,15 +1,54 @@
-﻿server/.vs
-server/server/bin
-server/server/obj
-server/server.Domain/bin
-server/server.Domain/obj
-server/server.Infastructure/bin
-server/server.Infastructure/obj
-server/server.Service/bin
-server/server.Service/obj
-server/server.Tests.Unit/bin
-server/server.Tests.Unit/obj
-server\server.Infastructure\Migrations
-client/.vscode
-server/server.Infastructure/Migrations
-server\server\appsettings.json
+####################################
+# OS / Editor
+####################################
+.DS_Store
+Thumbs.db
+
+####################################
+# Visual Studio / VS Code
+####################################
+.vs/
+.vscode/
+
+####################################
+# .NET build artifacts
+####################################
+**/bin/
+**/obj/
+
+####################################
+# Rider / ReSharper
+####################################
+.idea/
+_ReSharper*/
+*.DotSettings.user
+
+####################################
+# ASP.NET Core secrets & settings
+####################################
+appsettings.json
+appsettings.Development.json
+appsettings.Production.json
+
+####################################
+# EF Core
+####################################
+server/server.Infastructure/Migrations/
+
+####################################
+# Logs
+####################################
+*.log
+
+####################################
+# Node / Client
+####################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+####################################
+# Publish output
+####################################
+publish/
