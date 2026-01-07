@@ -3,32 +3,34 @@
 namespace server.Service.Interfaces
 {
     /// <summary>
-    /// IUserBadgeService: Quản lý badge của user.
+    /// Interface cho UserBadgeService.
+    /// Quản lý huy hiệu của user với hệ thống mốc kinh nghiệm cố định.
     /// </summary>
     public interface IUserBadgeService
     {
         /// <summary>
-        /// Lấy danh sách badge của user.
+        /// Lấy danh sách huy hiệu của user.
         /// </summary>
         Task<ApiResult> GetByUserId(int userId);
 
         /// <summary>
-        /// Lấy danh sách user theo badge.
+        /// Lấy danh sách user sở hữu huy hiệu cụ thể.
         /// </summary>
         Task<ApiResult> GetByBadgeId(int badgeId);
 
         /// <summary>
-        /// Gán badge cho user (khởi tạo với tier Newbie, 0 điểm).
+        /// Thêm điểm kinh nghiệm cho user.
+        /// Tự động unlock badge khi đạt mốc.
         /// </summary>
-        Task<ApiResult> Add(int userId, int badgeId);
+        Task<ApiResult> AddPoints(int userId, int experiencePoints);
 
         /// <summary>
-        /// Cộng điểm vào badge của user và tự động nâng tier nếu đạt ngưỡng.
+        /// Lấy tổng điểm kinh nghiệm của user.
         /// </summary>
-        Task<ApiResult> AddPoints(int userId, int badgeId, int points);
+        Task<ApiResult> GetTotalPoints(int userId);
 
         /// <summary>
-        /// Gỡ badge khỏi user.
+        /// Gỡ huy hiệu khỏi user.
         /// </summary>
         Task<ApiResult> Remove(int userId, int badgeId);
     }

@@ -1,4 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using server.Domain.Entities;
 using server.Infrastructure.Persistence;
 using server.Service.Common.IServices;
@@ -8,41 +9,53 @@ using server.Service.Models;
 namespace server.Service.Services
 {
     /// <summary>
-    /// UserBadgeService: Quản lý badge của user với hệ thống điểm và tier.
+    /// UserBadgeService: Quản lý huy hiệu của user với hệ thống mốc kinh nghiệm cố định.
     /// 
-    /// Hệ thống Tier:
-    /// - Newbie (1)    : 0 - 99 điểm
-    /// - Bronze (2)    : 100 - 249 điểm
-    /// - Silver (3)    : 250 - 449 điểm
-    /// - Gold (4)      : 450 - 699 điểm
-    /// - Platinum (5)  : 700 - 999 điểm
-    /// - Diamond (6)   : 1000 - 1499 điểm
-    /// - Legend (7)    : 1500+ điểm
+    /// Hệ thống mốc kinh nghiệm (Experience Milestones):
+    /// - BadgeId 2: 0 điểm        (Bắt đầu)
+    /// - BadgeId 3: 100 điểm      (Cấp độ 1)
+    /// - BadgeId 4: 300 điểm      (Cấp độ 2)
+    /// - BadgeId 5: 700 điểm      (Cấp độ 3)
+    /// - BadgeId 6: 1500 điểm     (Cấp độ 4)
+    /// - BadgeId 7: 3000 điểm     (Cấp độ 5)
+    /// - BadgeId 8: 5000 điểm     (Cấp độ 6 - Max)
+    /// 
+    /// Logic:
+    /// - Lần đầu tiên: Tạo UserBadge mốc đầu tiên (BadgeId 2) với Points = experiencePoints
+    /// - Lần sau: Chỉ UPDATE Points (không thêm dòng mới, chỉ cập nhật giá trị)
+    /// - Khi user đạt mốc kinh nghiệm, tự động unlock badge tương ứng
     /// </summary>
     public class UserBadgeService : BaseService, IUserBadgeService
     {
+        private readonly ILogger<UserBadgeService> _logger;
+
         /// <summary>
-        /// Bảng chuyển đổi điểm để nâng tier.
-        /// Key: Tier (1-7), Value: Điểm cần thiết để đạt tier đó
+        /// Bảng mốc kinh nghiệm: Điểm → BadgeId (bắt đầu từ BadgeId 2).
+        /// Key: Điểm kinh nghiệm
+        /// Value: BadgeId tương ứng
         /// </summary>
-        private static readonly Dictionary<int, int> TierThresholds = new()
+        private static readonly Dictionary<int, int> ExperienceMilestones = new()
         {
-            { 1, 0 },       // Newbie
-            { 2, 100 },     // Bronze
-            { 3, 250 },     // Silver
-            { 4, 450 },     // Gold
-            { 5, 700 },     // Platinum
-            { 6, 1000 },    // Diamond
-            { 7, 1500 }     // Legend
+            { 0, 2 },       // BadgeId 2: 0 điểm (Bắt đầu)
+            { 100, 3 },     // BadgeId 3: 100 điểm
+            { 300, 4 },     // BadgeId 4: 300 điểm
+            { 700, 5 },     // BadgeId 5: 700 điểm
+            { 1500, 6 },    // BadgeId 6: 1500 điểm
+            { 3000, 7 },    // BadgeId 7: 3000 điểm
+            { 5000, 8 }     // BadgeId 8: 5000 điểm (Max)
         };
 
-        public UserBadgeService(DataContext dataContext, IUserService userService)
+        public UserBadgeService(
+            DataContext dataContext,
+            IUserService userService,
+            ILogger<UserBadgeService> logger)
             : base(dataContext, userService)
         {
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
-        /// Lấy danh sách badge của user kèm tier hiện tại.
+        /// Lấy danh sách badge của user cùng với thông tin điểm.
         /// </summary>
         public async Task<ApiResult> GetByUserId(int userId)
         {
@@ -57,12 +70,13 @@ namespace server.Service.Services
                     .OrderByDescending(x => x.CreatedDate)
                     .ToListAsync();
 
-                return ApiResult.Success(result, "Lấy danh sách badge của user thành công");
+                return ApiResult.Success(result, "Lấy danh sách huy hiệu của user thành công");
             }
             catch (Exception ex)
             {
+                _logger.LogError($"GetByUserId error: {ex.Message}");
                 return ApiResult.Fail(
-                    "Lấy danh sách badge của user thất bại",
+                    "Lấy danh sách huy hiệu của user thất bại",
                     "SYSTEM_ERROR",
                     new[] { ex.Message }
                 );
@@ -70,7 +84,7 @@ namespace server.Service.Services
         }
 
         /// <summary>
-        /// Lấy danh sách user có badge cụ thể.
+        /// Lấy danh sách user sở hữu badge cụ thể.
         /// </summary>
         public async Task<ApiResult> GetByBadgeId(int badgeId)
         {
@@ -85,12 +99,13 @@ namespace server.Service.Services
                     .OrderByDescending(x => x.CreatedDate)
                     .ToListAsync();
 
-                return ApiResult.Success(result, "Lấy danh sách user theo badge thành công");
+                return ApiResult.Success(result, "Lấy danh sách user theo huy hiệu thành công");
             }
             catch (Exception ex)
             {
+                _logger.LogError($"GetByBadgeId error: {ex.Message}");
                 return ApiResult.Fail(
-                    "Lấy danh sách user theo badge thất bại",
+                    "Lấy danh sách user theo huy hiệu thất bại",
                     "SYSTEM_ERROR",
                     new[] { ex.Message }
                 );
@@ -98,105 +113,110 @@ namespace server.Service.Services
         }
 
         /// <summary>
-        /// Gán badge mới cho user (khởi tạo với tier Newbie).
+        /// Thêm điểm kinh nghiệm cho user và tự động unlock badge khi đạt mốc.
+        /// 
+        /// Quy trình:
+        /// 1. Kiểm tra user đã có badge mốc đầu tiên (BadgeId 2) chưa
+        ///    - Nếu chưa: INSERT 1 dòng mới
+        ///    - Nếu rồi: UPDATE điểm (chỉ cập nhật value, không thêm dòng mới)
+        /// 2. Kiểm tra mốc mới nào được unlock
+        /// 3. Tự động gán badge mới (INSERT) nếu mốc mới được đạt
         /// </summary>
-        public async Task<ApiResult> Add(int userId, int badgeId)
+        public async Task<ApiResult> AddPoints(int userId, int experiencePoints)
         {
-            if (userId <= 0)
-                return ApiResult.Fail("UserId không hợp lệ", "VALIDATION_ERROR");
-
-            if (badgeId <= 0)
-                return ApiResult.Fail("BadgeId không hợp lệ", "VALIDATION_ERROR");
-
-            await using var tran = await _dataContext.Database.BeginTransactionAsync();
-            try
-            {
-                var badgeExists = await _dataContext.Set<Badge>()
-                    .AsNoTracking()
-                    .AnyAsync(x => x.Id == badgeId);
-
-                if (!badgeExists)
-                    return ApiResult.Fail("Không tìm thấy badge", "BADGE_NOT_FOUND");
-
-                var existed = await _dataContext.Set<UserBadge>()
-                    .AnyAsync(x => x.UserId == userId && x.BadgeId == badgeId);
-
-                if (existed)
-                    return ApiResult.Fail("User đã có badge này", "USER_BADGE_ALREADY_EXISTS");
-
-                var userBadge = new UserBadge
-                {
-                    UserId = userId,
-                    BadgeId = badgeId,
-                    Points = 0,
-                    CurrentTier = 1,
-                    CreatedDate = Now
-                };
-
-                await _dataContext.Set<UserBadge>().AddAsync(userBadge);
-                await SaveChangesAsync();
-
-                await tran.CommitAsync();
-                return ApiResult.Success(userBadge, "Gán badge cho user thành công");
-            }
-            catch (Exception ex)
-            {
-                await tran.RollbackAsync();
-                return ApiResult.Fail(
-                    "Gán badge cho user thất bại",
-                    "INTERNAL_ERROR",
-                    new[] { ex.Message }
-                );
-            }
-        }
-
-        /// <summary>
-        /// Cộng điểm vào badge của user và tự động nâng tier nếu đạt ngưỡng.
-        /// </summary>
-        public async Task<ApiResult> AddPoints(int userId, int badgeId, int points)
-        {
-            if (userId <= 0)
-                return ApiResult.Fail("UserId không hợp lệ", "VALIDATION_ERROR");
-
-            if (badgeId <= 0)
-                return ApiResult.Fail("BadgeId không hợp lệ", "VALIDATION_ERROR");
-
-            if (points < 0)
-                return ApiResult.Fail("Điểm không thể âm", "VALIDATION_ERROR");
+            if (userId <= 0 || experiencePoints <= 0)
+                return ApiResult.Success(null, "Không có điểm được cộng");
 
             await using var tran = await _dataContext.Database.BeginTransactionAsync();
             try
             {
                 var userBadge = await _dataContext.Set<UserBadge>()
-                    .FirstOrDefaultAsync(x => x.UserId == userId && x.BadgeId == badgeId);
+                    .FirstOrDefaultAsync(x => x.UserId == userId);
 
                 if (userBadge == null)
-                    return ApiResult.Fail("User chưa có badge này", "USER_BADGE_NOT_FOUND");
-
-                userBadge.Points += points;
-
-                var newTier = GetTierByPoints(userBadge.Points);
-                if (newTier > userBadge.CurrentTier)
                 {
-                    userBadge.CurrentTier = newTier;
+                    userBadge = new UserBadge
+                    {
+                        UserId = userId,
+                        BadgeId = 2,
+                        Points = 0,
+                        CreatedDate = Now
+                    };
+                    await _dataContext.Set<UserBadge>().AddAsync(userBadge);
                 }
 
+                userBadge.Points += experiencePoints;
                 userBadge.UpdatedDate = Now;
+
+                var totalPoints = userBadge.Points;
+
+                var newBadgeId = ExperienceMilestones
+                    .Where(x => totalPoints >= x.Key)
+                    .OrderByDescending(x => x.Key)
+                    .Select(x => x.Value)
+                    .First();
+
+                var unlocked = new List<int>();
+                if (newBadgeId != userBadge.BadgeId)
+                {
+                    userBadge.BadgeId = newBadgeId;
+                    unlocked.Add(newBadgeId);
+                }
 
                 await SaveChangesAsync();
                 await tran.CommitAsync();
 
                 return ApiResult.Success(
-                    userBadge,
-                    $"Cộng {points} điểm thành công. Tier hiện tại: {GetTierName(userBadge.CurrentTier)}"
+                    new { UserId = userId, TotalPoints = totalPoints, UnlockedBadges = unlocked },
+                    unlocked.Count > 0
+                        ? $"Cộng {experiencePoints} điểm thành công. Tổng: {totalPoints}. Badge hiện tại: {newBadgeId}"
+                        : $"Cộng {experiencePoints} điểm thành công. Tổng: {totalPoints}"
                 );
             }
             catch (Exception ex)
             {
                 await tran.RollbackAsync();
+                _logger.LogError(ex, "AddPoints error");
+                return ApiResult.Fail("Cộng điểm thất bại", "INTERNAL_ERROR");
+            }
+        }
+
+
+
+        /// <summary>
+        /// Lấy tổng điểm kinh nghiệm của user (từ badge mốc bắt đầu BadgeId 2).
+        /// </summary>
+        public async Task<ApiResult> GetTotalPoints(int userId)
+        {
+            if (userId <= 0)
+                return ApiResult.Fail("UserId không hợp lệ", "VALIDATION_ERROR");
+
+            try
+            {
+                var startingBadge = await _dataContext.Set<UserBadge>()
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x => x.UserId == userId && x.BadgeId == 2);
+
+                var totalPoints = startingBadge?.Points ?? 0;
+                var currentMilestone = GetCurrentMilestone(totalPoints);
+
+                return ApiResult.Success(
+                    new
+                    {
+                        UserId = userId,
+                        TotalPoints = totalPoints,
+                        CurrentMilestone = currentMilestone,
+                        NextMilestonePoints = GetNextMilestoneThreshold(totalPoints)
+                    },
+                    "Lấy tổng điểm kinh nghiệm thành công"
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"GetTotalPoints error: {ex.Message}");
                 return ApiResult.Fail(
-                    "Cộng điểm thất bại",
-                    "INTERNAL_ERROR",
+                    "Lấy tổng điểm thất bại",
+                    "SYSTEM_ERROR",
                     new[] { ex.Message }
                 );
             }
@@ -220,52 +240,58 @@ namespace server.Service.Services
                     .FirstOrDefaultAsync(x => x.UserId == userId && x.BadgeId == badgeId);
 
                 if (userBadge == null)
-                    return ApiResult.Fail("User chưa có badge này", "USER_BADGE_NOT_FOUND");
+                    return ApiResult.Fail("User chưa có huy hiệu này", "USER_BADGE_NOT_FOUND");
 
                 _dataContext.Set<UserBadge>().Remove(userBadge);
                 await SaveChangesAsync();
 
                 await tran.CommitAsync();
-                return ApiResult.Success(null, "Gỡ badge khỏi user thành công");
+
+                _logger.LogInformation($"User {userId} badge {badgeId} removed");
+                return ApiResult.Success(null, "Gỡ huy hiệu khỏi user thành công");
             }
             catch (Exception ex)
             {
                 await tran.RollbackAsync();
+                _logger.LogError($"Remove error: {ex.Message}");
                 return ApiResult.Fail(
-                    "Gỡ badge khỏi user thất bại",
+                    "Gỡ huy hiệu khỏi user thất bại",
                     "INTERNAL_ERROR",
                     new[] { ex.Message }
                 );
             }
         }
 
-        /// <summary>
-        /// Xác định tier dựa trên tổng điểm.
-        /// </summary>
-        private int GetTierByPoints(int points)
-        {
-            foreach (var (tier, threshold) in TierThresholds.OrderByDescending(x => x.Key))
-            {
-                if (points >= threshold)
-                    return tier;
-            }
+        #region Helper Methods
 
-            return 1; // Mặc định Newbie
+        /// <summary>
+        /// Lấy mốc kinh nghiệm hiện tại dựa trên tổng điểm.
+        /// </summary>
+        private string GetCurrentMilestone(int totalPoints)
+        {
+            var currentMilestone = ExperienceMilestones
+                .Where(x => totalPoints >= x.Key)
+                .OrderByDescending(x => x.Key)
+                .FirstOrDefault();
+
+            return currentMilestone.Key >= 0
+                ? $"Mốc {currentMilestone.Key} điểm (BadgeId: {currentMilestone.Value})"
+                : "Chưa đạt mốc nào";
         }
 
         /// <summary>
-        /// Lấy tên tier từ số hiệu.
+        /// Lấy mốc kinh nghiệm tiếp theo cần đạt.
         /// </summary>
-        private string GetTierName(int tier) => tier switch
+        private int GetNextMilestoneThreshold(int totalPoints)
         {
-            1 => "Newbie",
-            2 => "Bronze",
-            3 => "Silver",
-            4 => "Gold",
-            5 => "Platinum",
-            6 => "Diamond",
-            7 => "Legend",
-            _ => "Unknown"
-        };
+            var nextMilestone = ExperienceMilestones
+                .Where(x => x.Key > totalPoints)
+                .OrderBy(x => x.Key)
+                .FirstOrDefault();
+
+            return nextMilestone.Key > 0 ? nextMilestone.Key : 5000;
+        }
+
+        #endregion
     }
 }

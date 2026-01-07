@@ -1,13 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using server.Service.Interfaces;
+using server.Service.Models.UserBadge;
 
 namespace server.Controllers
 {
-    /// <summary>
-    /// UserBadgeController: API cho user tự bấm nhận badge.
-    /// </summary>
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
     public class UserBadgeController : BaseController
     {
         private readonly IUserBadgeService _userBadgeService;
@@ -17,54 +17,45 @@ namespace server.Controllers
             _userBadgeService = userBadgeService;
         }
 
-        /// <summary>
-        /// Lấy danh sách badge của user (profile).
-        /// GET: /api/userbadge/my-badges
-        /// </summary>
-        [Authorize]
-        [HttpGet("my-badges")]
+        [HttpGet("get-my-badges")]
         public async Task<IActionResult> GetMyBadges([FromQuery] int userId)
-            => FromApiResult(await _userBadgeService.GetByUserId(userId));
-
-        /// <summary>
-        /// User nhận badge (bấm nút nhận huy hiệu).
-        /// POST: /api/userbadge/claim
-        /// Body: { "badgeId": 2 }
-        /// </summary>
-        [Authorize]
-        [HttpPost("claim")]
-        public async Task<IActionResult> ClaimBadge([FromQuery] int userId, [FromQuery] int badgeId)
         {
-            if (userId <= 0 || badgeId <= 0)
-                return FailResult("UserId và BadgeId không hợp lệ", StatusCodes.Status400BadRequest);
-
-            var result = await _userBadgeService.Add(userId, badgeId);
-            return FromApiResult(result, StatusCodes.Status201Created);
-        }
-
-        /// <summary>
-        /// Cộng điểm vào badge (admin hoặc system gọi).
-        /// POST: /api/userbadge/add-points
-        /// Body: { "userId": 1, "badgeId": 2, "points": 50 }
-        /// </summary>
-        [Authorize]
-        [HttpPost("add-points")]
-        public async Task<IActionResult> AddPoints([FromQuery] int userId, [FromQuery] int badgeId, [FromQuery] int points)
-        {
-            if (points < 0)
-                return FailResult("Điểm không thể âm", StatusCodes.Status400BadRequest);
-
-            var result = await _userBadgeService.AddPoints(userId, badgeId, points);
+            var result = await _userBadgeService.GetByUserId(userId);
             return FromApiResult(result);
         }
 
-        /// <summary>
-        /// Gỡ badge khỏi user.
-        /// DELETE: /api/userbadge/remove?userId=1&badgeId=2
-        /// </summary>
-        [Authorize]
+        [HttpGet("get-by-badge")]
+        public async Task<IActionResult> GetByBadgeId([FromQuery] int badgeId)
+        {
+            var result = await _userBadgeService.GetByBadgeId(badgeId);
+            return FromApiResult(result);
+        }
+
+        [HttpGet("get-total-points")]
+        public async Task<IActionResult> GetTotalPoints([FromQuery] int userId)
+        {
+            var result = await _userBadgeService.GetTotalPoints(userId);
+            return FromApiResult(result);
+        }
+
+        [HttpPost("add")]
+        public async Task<IActionResult> AddPoints([FromBody] AddPointsRequestModel request)
+        {
+            var result = await _userBadgeService.AddPoints(
+                request.UserId,
+                request.ExperiencePoints
+            );
+
+            return FromApiResult(result);
+        }
+
         [HttpDelete("remove")]
-        public async Task<IActionResult> RemoveBadge([FromQuery] int userId, [FromQuery] int badgeId)
-            => FromApiResult(await _userBadgeService.Remove(userId, badgeId));
+        public async Task<IActionResult> RemoveBadge(
+            [FromQuery] int userId,
+            [FromQuery] int badgeId)
+        {
+            var result = await _userBadgeService.Remove(userId, badgeId);
+            return FromApiResult(result);
+        }
     }
 }
