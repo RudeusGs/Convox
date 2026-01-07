@@ -1,9 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using server.Service.Interfaces;
-using server.Service.Models.Badge;
-using System.Linq;
+using server.Service.Models.Badges;
 
 namespace server.Controllers
 {

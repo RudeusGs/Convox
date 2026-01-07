@@ -1,5 +1,7 @@
-﻿using server.Service.Models;
-using server.Service.Models.Room;
+﻿
+using Microsoft.AspNetCore.Http;
+using server.Service.Models;
+using server.Service.Models.Rooms;
 
 namespace server.Service.Interfaces
 {
@@ -11,5 +13,7 @@ namespace server.Service.Interfaces
         Task<ApiResult> GetAll();
         Task<ApiResult> GetById(int id);
         Task<ApiResult> GetByUserId(int userId);
+        Task<ApiResult> UploadAvatarAsync(int roomId, IFormFile file, CancellationToken cancellationToken = default);
     }
 }
+

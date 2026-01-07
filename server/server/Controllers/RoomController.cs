@@ -1,9 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using server.Service.Interfaces;
-using server.Service.Models.Room;
-using System.Linq;
+using server.Service.Models.Rooms;
 
 namespace server.Controllers
 {
@@ -61,5 +59,16 @@ namespace server.Controllers
         [HttpDelete("delete")]
         public async Task<IActionResult> Delete(int id)
             => FromApiResult(await _roomService.Delete(id));
+
+        [Authorize]
+        [HttpPost("upload-avatar")]
+        public async Task<IActionResult> UploadAvatar(int roomId, IFormFile file, CancellationToken cancellationToken)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "File ảnh không được để trống" });
+
+            var result = await _roomService.UploadAvatarAsync(roomId, file, cancellationToken);
+            return FromApiResult(result);
+        }
     }
 }

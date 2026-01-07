@@ -90,7 +90,7 @@ namespace server.Service.Services.Authentication
                     UserName = model.UserName.Trim(),
                     Email = model.Email.Trim(),
                     FullName = model.FullName?.Trim(),
-                    CreatedDate = DateTime.UtcNow.AddHours(7),
+                    CreatedDate = DateTime.Now,
                     IsAuthen = false
                 };
 

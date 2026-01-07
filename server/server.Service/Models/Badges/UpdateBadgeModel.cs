@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace server.Service.Models.Badge
+namespace server.Service.Models.Badges
 {
     /// <summary>
     /// Model để cập nhật badge.

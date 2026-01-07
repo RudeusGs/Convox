@@ -1,5 +1,5 @@
 ﻿using server.Service.Models;
-using server.Service.Models.Badge;
+using server.Service.Models.Badges;
 
 namespace server.Service.Interfaces
 {

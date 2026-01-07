@@ -1,5 +1,4 @@
-﻿using System.Net.Http.Json;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -11,7 +10,6 @@ namespace server.Service.Utilities
     /// 
     /// Mục đích:
     /// - Cung cấp hàm static để upload ảnh từ bất kỳ service nào
-    /// - Tái sử dụng logic upload, không lặp code
     /// - Các bảng lưu URL ảnh thông qua thuộc tính riêng
     /// 
     /// Cách sử dụng:

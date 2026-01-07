@@ -7,10 +7,10 @@ using server.Infrastructure.Persistence;
 using server.Service.Common.IServices;
 using server.Service.Interfaces;
 using server.Service.Models;
-using server.Service.Models.Badge;
+using server.Service.Models.Badges;
 using server.Service.Utilities;
 
-namespace server.Service.Services
+namespace server.Service.Services.Badges
 {
     public class BadgeService : BaseService, IBadgeService
     {
@@ -54,8 +54,6 @@ namespace server.Service.Services
 
                 if (existed)
                     return ApiResult.Fail("Tên badge đã tồn tại", "BADGE_ALREADY_EXISTS");
-
-                // Upload icon lên ImgBB
                 string iconUrl;
                 try
                 {
@@ -148,8 +146,6 @@ namespace server.Service.Services
                 badge.Name = modelBadge.Name.Trim();
                 badge.Description = modelBadge.Description?.Trim();
                 badge.ExperiencePoints = modelBadge.ExperiencePoints;
-
-                // Upload icon mới nếu có file
                 if (modelBadge.IconFile != null)
                 {
                     try
