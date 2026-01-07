@@ -6,7 +6,7 @@ using server.Service.Common.IServices;
 using server.Service.Interfaces;
 using server.Service.Models;
 
-namespace server.Service.Services
+namespace server.Service.Services.Badges
 {
     /// <summary>
     /// UserBadgeService: Quản lý huy hiệu của user với hệ thống mốc kinh nghiệm cố định.

@@ -9,6 +9,7 @@ namespace server.Domain.Entities
         public int OwnerId { get; set; } // ID của người tạo phòng
         public string? Password { get; set; } // Mật khẩu phòng (nếu có)
         public bool IsLocked { get; set; } = false; // Phòng khóa hay mở
+        public string RoomCode { get; set; } // Mã phòng để mời người khác vào
         public string? Avatar { get; set; } // Hình đại diện của phòng(có hoặc mặc định)
     }
 
