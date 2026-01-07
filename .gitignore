@@ -52,3 +52,4 @@ yarn-error.log*
 # Publish output
 ####################################
 publish/
+server/server/appsettings.json
