@@ -1,38 +1,45 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import ChatArea from '@/views/ChatArea.vue'
-import DirectMessage from '@/views/DirectMessage.vue'
-import ServerSettings from '@/views/ServerSettings.vue'
+import LandingView from '@/views/LandingView.vue'
+import LoginView from '@/views/Login.vue'
+import MainLayout from '@/views/MainLayout.vue'
+import HomeView from '@/views/HomeView.vue'
+import Register from '@/views/Register.vue'
+
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
-    path: '/',
-    redirect: '/channels/main/general'
-  },
-  {
-    path: '/channels/:serverId/:channelId',
-    name: 'Channel',
-    component: ChatArea,
-    props: true
-  },
-  {
-    path: '/dm/:userId',
-    name: 'DirectMessage',
-    component: DirectMessage,
-    props: true
-  },
-  {
-    path: '/dm',
-    name: 'DirectMessages',
-    component: DirectMessage
-  },
-  {
-    path: '/settings/:serverId',
-    name: 'ServerSettings',
-    component: ServerSettings,
-    props: true
-  }
-  ]
+      path: '/',
+      name: 'landing',
+      component: LandingView,
+    },
+    {
+      path: '/login',
+      name: 'login',
+      component: LoginView,
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: Register,
+    },
+    {
+      path: '/app',
+      component: MainLayout,
+      children: [
+        {
+          path: '',
+          name: 'home',
+          component: HomeView,
+        },
+        // sau này thêm các route con khác tại đây (channel, profile, ...)
+      ],
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      redirect: '/',
+    },
+  ],
 })
 
 export default router
