@@ -219,7 +219,6 @@ namespace server.Service.Services.Rooms
 
             if (file == null || file.Length == 0)
                 return ApiResult.Fail("File ảnh không được để trống", "VALIDATION_ERROR");
-
             await using var tran = await _dataContext.Database.BeginTransactionAsync(cancellationToken);
             try
             {
@@ -228,8 +227,24 @@ namespace server.Service.Services.Rooms
                 if (room == null)
                     return ApiResult.Fail("Không tìm thấy phòng", "ROOM_NOT_FOUND");
 
-                if (room.OwnerId != _userService.UserId)
-                    return ApiResult.Fail("Không có quyền cập nhật avatar phòng", "FORBIDDEN");
+                var userId = _userService.UserId;
+                if (userId <= 0)
+                    return ApiResult.Fail("Bạn chưa đăng nhập", "UNAUTHORIZED");
+
+                var leader = await _dataContext.UserRooms
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(x =>
+                        x.RoomId == roomId &&
+                        x.UserId == userId &&
+                        !x.IsBan,
+                        cancellationToken);
+
+                if (leader == null)
+                    return ApiResult.Fail("Bạn không thuộc phòng này", "NOT_IN_ROOM");
+
+                if (leader.Role != RoomRole.GroupLeader)
+                    return ApiResult.Fail("Chỉ trưởng nhóm mới có quyền cập nhật avatar phòng", "FORBIDDEN");
+
 
                 var imageUrl = await ImgBBUploadHelper.UploadImageAsync(file, _configuration, cancellationToken);
 
