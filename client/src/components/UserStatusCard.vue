@@ -1,14 +1,24 @@
 <template>
   <div class="user-card-fixed">
-    <div class="user-card">
-      <!-- Avatar + trạng thái -->
+    <div
+      class="user-card"
+      :class="{ collapsed: isCollapsed }"
+      @click="handleCardClick"
+    >
+      <button
+        type="button"
+        class="collapse-btn"
+        @click.stop="toggleCollapse"
+      >
+        <i :class="isCollapsed ? 'bi bi-chevron-right' : 'bi bi-chevron-left'"></i>
+      </button>
+
       <div class="user-card-avatar">
         <img :src="avatarUrl" alt="avatar" />
         <span class="status-dot" :class="`status-${statusType}`"></span>
       </div>
 
-      <!-- Tên + trạng thái chữ -->
-      <div class="user-card-info">
+      <div v-if="!isCollapsed" class="user-card-info">
         <div class="user-card-name">
           {{ displayName }}
         </div>
@@ -17,19 +27,17 @@
         </div>
       </div>
 
-      <!-- Icon action -->
-      <div class="user-card-actions">
-        <button type="button" class="icon-btn" @click="$emit('toggle-mic')">
+      <div v-if="!isCollapsed" class="user-card-actions">
+        <button type="button" class="icon-btn" @click.stop="$emit('toggle-mic')">
           <i class="bi bi-mic-fill"></i>
         </button>
-        <button type="button" class="icon-btn" @click="$emit('toggle-audio')">
+        <button type="button" class="icon-btn" @click.stop="$emit('toggle-audio')">
           <i class="bi bi-headphones"></i>
         </button>
-        <!-- NEW: bật/tắt camera -->
-        <button type="button" class="icon-btn" @click="$emit('toggle-camera')">
+        <button type="button" class="icon-btn" @click.stop="$emit('toggle-camera')">
           <i class="bi bi-camera-video-fill"></i>
         </button>
-        <button type="button" class="icon-btn" @click="$emit('open-settings')">
+        <button type="button" class="icon-btn" @click.stop="$emit('open-settings')">
           <i class="bi bi-gear-fill"></i>
         </button>
       </div>
@@ -55,9 +63,23 @@ export default {
       default: 'Trực tuyến',
     },
     statusType: {
-      // online / idle / dnd / offline
       type: String,
       default: 'online',
+    },
+  },
+  data() {
+    return {
+      isCollapsed: false,
+    }
+  },
+  methods: {
+    toggleCollapse() {
+      this.isCollapsed = !this.isCollapsed
+    },
+    handleCardClick() {
+      if (this.isCollapsed) {
+        this.isCollapsed = false
+      }
     },
   },
 }
@@ -72,6 +94,7 @@ export default {
 }
 
 .user-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -81,6 +104,19 @@ export default {
   min-width: 240px;
   max-width: 280px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  cursor: default;
+}
+
+.user-card.collapsed {
+  width: 52px;
+  min-width: 52px;
+  max-width: 52px;
+  height: 52px;
+  padding: 6px;
+  border-radius: 999px;
+  justify-content: center;
+  gap: 0;
+  cursor: pointer;
 }
 
 .user-card-avatar {
@@ -90,6 +126,11 @@ export default {
   border-radius: 999px;
   overflow: hidden;
   flex-shrink: 0;
+}
+
+.user-card.collapsed .user-card-avatar {
+  width: 40px;
+  height: 40px;
 }
 
 .user-card-avatar img {
@@ -164,6 +205,34 @@ export default {
 
 .icon-btn:hover {
   background-color: #374151;
+}
+
+.collapse-btn {
+  position: absolute;
+  top: 50%;
+  right: -8px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: none;
+  background-color: #020617;
+  color: #9ca3af;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.collapse-btn:hover {
+  background-color: #1f2937;
+  color: #ffffff;
+}
+
+.user-card.collapsed .collapse-btn {
+  right: -6px;
 }
 
 @media (max-width: 768px) {

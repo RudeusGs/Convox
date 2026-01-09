@@ -32,7 +32,6 @@ const router = createRouter({
           name: 'home',
           component: HomeView,
         },
-        // sau này thêm các route con khác tại đây (channel, profile, ...)
       ],
     },
     {

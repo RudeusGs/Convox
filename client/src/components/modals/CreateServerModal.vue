@@ -42,7 +42,7 @@
               <template v-else>
                 <div class="upload-icon mb-2">📁</div>
                 <div class="upload-label">Chọn ảnh</div>
-                <div class="upload-hint">PNG, JPG, tối đa 5MB</div>
+                <div class="upload-hint">PNG, JPG, tối đa 1MB</div>
               </template>
             </div>
 
@@ -280,7 +280,7 @@ export default {
 .upload-card:hover {
   border-style: solid;
   border-color: #6366f1;
-  background: radial-gradient(circle at top left, rgba(99, 102, 241, 0.2), #111827);
+  background: #1f2937;
 }
 
 .upload-icon {
