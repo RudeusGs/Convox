@@ -6,14 +6,24 @@
     />
 
     <div class="flex-grow-1 d-flex">
-      <RouterView
-        :activeChannel="activeChannel"
-        :activeServer="activeServer"
-        :activeDM="activeDM"
+      <ServerSidebar
+        v-if="activeServer"
+        :server="activeServer"
+        :activeChannelId="activeChannel && activeChannel.id"
+        @select-channel="onSelectChannel"
+        @join-voice="onJoinVoice"
+        @close-sidebar="onCloseSidebar"
       />
+
+      <div class="flex-grow-1 d-flex">
+        <RouterView
+          :activeChannel="activeChannel"
+          :activeServer="activeServer"
+          :activeDM="activeDM"
+        />
+      </div>
     </div>
 
-    <!-- Modal tạo phòng -->
     <CreateServerModal
       v-if="showCreateModal"
       @close="showCreateModal = false"
@@ -21,14 +31,12 @@
       @open-join-by-code="openJoinByCodeModal"
     />
 
-    <!-- Modal join bằng mã -->
     <ModalJoinRoom
       v-if="showJoinModal"
       @close="showJoinModal = false"
       @join="handleJoinByCode"
     />
 
-    <!-- Card user cố định góc trái dưới -->
     <UserStatusCard
       v-if="isLoggedIn"
       :displayName="currentUser.displayName"
@@ -45,6 +53,7 @@
 
 <script>
 import ServerBar from '@/components/ServerBar/ServerBar.vue'
+import ServerSidebar from '@/components/Sidebar/ServerSidebar.vue'
 import CreateServerModal from '@/components/modals/CreateServerModal.vue'
 import ModalJoinRoom from '@/components/modals/ModalJoinRoom.vue'
 import UserStatusCard from '@/components/UserStatusCard.vue'
@@ -53,18 +62,18 @@ export default {
   name: 'MainLayout',
   components: {
     ServerBar,
+    ServerSidebar,
     CreateServerModal,
     ModalJoinRoom,
     UserStatusCard,
   },
-
   data() {
     return {
       activeServer: null,
       activeChannel: null,
       activeDM: null,
       showCreateModal: false,
-      showJoinModal: false,        // <<< thêm state modal join
+      showJoinModal: false,
       isLoggedIn: true,
       currentUser: {
         displayName: 'Rudeus Grey',
@@ -74,35 +83,43 @@ export default {
       },
     }
   },
-
   methods: {
     onSelectServer(server) {
       this.activeServer = server
-      console.log('Selected server:', server)
+      const firstSection =
+        server.sections && server.sections.length
+          ? server.sections[0]
+          : null
+      const firstChannel =
+        firstSection && firstSection.channels && firstSection.channels.length
+          ? firstSection.channels[0]
+          : null
+      this.activeChannel = firstChannel || null
     },
-
+    onSelectChannel(channel) {
+      this.activeChannel = channel
+    },
+    onJoinVoice(channel) {
+      console.log('Join voice', channel)
+    },
+    onCloseSidebar() {
+      this.activeServer = null
+      this.activeChannel = null
+    },
     handleCreateServer(payload) {
       console.log('Tạo server mới:', payload)
       this.showCreateModal = false
     },
-
-    // từ ModalJoinRoom @join
     handleJoinByCode(payload) {
-      // payload có thể là string hoặc object { code, nickname }
       const code = typeof payload === 'string' ? payload : payload.code
       const nickname = typeof payload === 'string' ? null : payload.nickname
-
       console.log('Tham gia server bằng mã:', code, 'nickname:', nickname)
-      // TODO: call API join server ở đây
       this.showJoinModal = false
     },
-
-    // từ CreateServerModal @open-join-by-code
     openJoinByCodeModal() {
       this.showCreateModal = false
       this.showJoinModal = true
     },
-
     onToggleMic() {
       console.log('toggle mic')
     },
