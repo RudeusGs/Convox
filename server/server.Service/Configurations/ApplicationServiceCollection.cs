@@ -16,8 +16,6 @@ namespace server.Service.Configurations
         public static IServiceCollection AddApplicationServices(this IServiceCollection services)
         {
             #region Common services
-            // JWT
-            services.AddScoped<IJwtService, JwtService>();
 
             // User Management Service
             services.AddScoped<UserManager<User>>();

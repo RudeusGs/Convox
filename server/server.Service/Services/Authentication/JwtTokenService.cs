@@ -26,9 +26,9 @@ namespace server.Service.Services.Authentication
         /// </summary>
         public UserToken GenerateToken(User user, IEnumerable<string> roles)
         {
-            var secret = _configuration["Jwt:Secret"];
+            var secret = _configuration["JWT:Secret"];
             if (string.IsNullOrWhiteSpace(secret))
-                throw new InvalidOperationException("Missing Jwt:Secret in configuration.");
+                throw new InvalidOperationException("Missing JWT:Secret in configuration.");
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -39,8 +39,8 @@ namespace server.Service.Services.Authentication
             var claims = BuildClaims(user, roles);
 
             var jwt = new JwtSecurityToken(
-                issuer: _configuration["Jwt:ValidIssuer"],
-                audience: _configuration["Jwt:ValidAudience"],
+                issuer: _configuration["JWT:ValidIssuer"],
+                audience: _configuration["JWT:ValidAudience"],
                 claims: claims,
                 notBefore: now,
                 expires: expires,
