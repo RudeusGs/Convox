@@ -61,7 +61,6 @@ namespace server
                         .AllowCredentials();
                 });
             });
-            builder.Services.AddSignalR();
             builder.Services.AddApplicationServices();
             builder.Services.AddInfrastructureServices(builder.Configuration);
 

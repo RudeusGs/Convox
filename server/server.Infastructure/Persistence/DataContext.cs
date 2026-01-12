@@ -23,5 +23,7 @@ namespace server.Infrastructure.Persistence
         public DbSet<Submission> Submissions { get; set; }
         public DbSet<UserBadge> UserBadges { get; set; }
         public DbSet<UserRoom> UserRooms { get; set; }
+        public DbSet<UserRoomControl> UserRoomControls { get; set; }
+
     }
 }
