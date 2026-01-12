@@ -54,6 +54,41 @@ namespace server.Service.Services.Quizzes
             return ApiResult.Success(quiz);
 
         }
+
+        public async Task<ApiResult> SubmitQuiz(SubmitQuizModel model)
+        {
+            var currentUserId = _userService.UserId;
+
+            var quiz = await _dataContext.Quizzes.FindAsync(model.QuizId);
+
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+
+            //check quyền user trong phòng
+            var userRoom = await _dataContext.UserRooms
+                .FirstOrDefaultAsync(ur => ur.RoomId == quiz.RoomId
+                                        && ur.UserId == currentUserId
+                                        && ur.DeletedDate == null);
+
+            if (userRoom == null || userRoom.IsBan)
+                return ApiResult.Fail("Bạn không có quyền tham gia trả lời");
+
+            //check đáp áp, không phân biệt hoa thường và khoảng trắng
+            bool isCorrect = model.Answer.Trim().Equals(quiz.CorrectAnswer.Trim(), StringComparison.OrdinalIgnoreCase);
+
+            var response = new QuizResponse
+            {
+                QuizId = model.QuizId,
+                UserId = currentUserId,
+                Answer = model.Answer,
+                IsCorrect = isCorrect,
+                CreatedDate = Now
+            };
+
+            _dataContext.QuizResponses.Add(response);
+            await SaveChangesAsync();
+
+            return ApiResult.Success(new { IsCorrect = isCorrect }, isCorrect ? "Chính xác!" : "Rất tiếc, sai rồi!");
+        }
     }
 
 

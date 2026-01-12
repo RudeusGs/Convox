@@ -6,6 +6,6 @@ namespace server.Service.Interfaces
     public interface IQuizService
     {
         Task<ApiResult> CreateQuiz(CreateQuizModel model);
-        //Task<ApiResult> SubmitQuiz(...);
+        Task<ApiResult> SubmitQuiz(SubmitQuizModel model);
     }
 }

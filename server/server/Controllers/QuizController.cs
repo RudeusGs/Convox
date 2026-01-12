@@ -29,5 +29,17 @@ namespace server.Controllers
             return FromApiResult(await _quizService.CreateQuiz(model));
         }
 
+        [HttpPost("submit")]
+        public async Task<IActionResult> SubmitQuiz([FromBody] SubmitQuizModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return FailResultFromErrors("Dữ liệu không hợp lệ", errors);
+            }
+
+            return FromApiResult(await _quizService.SubmitQuiz(model));
+        }
+
     }
 }
