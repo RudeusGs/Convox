@@ -17,5 +17,6 @@ namespace server.Service.Interfaces
         Task<ApiResult> GetAllQuizzesByRoom(int roomId, CancellationToken ct = default);
         Task<ApiResult> GetQuizById(int id, CancellationToken ct = default);
         Task<ApiResult> UpdateStatus(UpdateQuizStatusModel model, CancellationToken ct = default);
+        Task<ApiResult> UpdateBulkStatus(UpdateBulkStatusModel model, CancellationToken ct = default);
     }
 }

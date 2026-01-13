@@ -272,6 +272,35 @@ namespace server.Service.Services.Quizzes
             return ApiResult.Success(new { quiz.Id, quiz.Status }, msg);
         }
 
+        public async Task<ApiResult> UpdateBulkStatus(UpdateBulkStatusModel model, CancellationToken ct = default)
+        {
+            var currentUserId = _userService.UserId;
+
+            var userRoom = await GetActiveUserRoomAsync(model.RoomId, currentUserId, ct);
+            if (userRoom == null || userRoom.Role != RoomRole.GroupLeader)
+                return ApiResult.Fail("Bạn không có quyền thay đổi trạng thái Quiz này");
+
+            // Lấy danh sách Quiz cần sửa
+            var quizzes = await _dataContext.Quizzes
+                .Where(q => q.RoomId == model.RoomId
+                         && model.QuizIds.Contains(q.Id)
+                         && q.DeletedDate == null)
+                .ToListAsync(ct);
+
+            if (!quizzes.Any()) return ApiResult.Fail("Không tìm thấy câu hỏi nào hợp lệ");
+
+            // Update Status hàng loạt
+            foreach (var quiz in quizzes)
+            {
+                quiz.Status = model.NewStatus;
+                quiz.MarkUpdated();
+            }
+
+            await SaveChangesAsync(ct);
+
+            return ApiResult.Success(null, $"Đã cập nhật trạng thái cho {quizzes.Count} câu hỏi");
+        }
+
         //check user trong phòng và không bị ban
         private Task<UserRoom?> GetActiveUserRoomAsync(int roomId, int userId, CancellationToken ct = default)
         {

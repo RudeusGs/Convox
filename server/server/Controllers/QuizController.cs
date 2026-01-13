@@ -89,5 +89,11 @@ namespace server.Controllers
             return FromApiResult(await _quizService.UpdateStatus(model, ct));
         }
 
+        [HttpPut("update-status-bulk")]
+        public async Task<IActionResult> UpdateBulkStatus([FromBody] UpdateBulkStatusModel model, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.UpdateBulkStatus(model, ct));
+        }
+
     }
 }
