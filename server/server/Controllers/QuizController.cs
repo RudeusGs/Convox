@@ -83,5 +83,11 @@ namespace server.Controllers
             return FromApiResult(await _quizService.DeleteAllQuizzesInRoom(roomId, ct));
         }
 
+        [HttpPut("update-status")]
+        public async Task<IActionResult> UpdateStatus([FromBody] UpdateQuizStatusModel model, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.UpdateStatus(model, ct));
+        }
+
     }
 }

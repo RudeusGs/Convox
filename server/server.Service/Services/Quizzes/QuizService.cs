@@ -8,6 +8,7 @@ using server.Service.Interfaces;
 using server.Service.Models;
 using server.Service.Models.Quizzes;
 using System.Text.Json;
+using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 namespace server.Service.Services.Quizzes
 {
@@ -186,14 +187,22 @@ namespace server.Service.Services.Quizzes
             if (userRoom == null)
                 return ApiResult.Fail("Bạn không có quyền truy cập phòng này");
 
+            var query = _dataContext.Quizzes.AsNoTracking()
+                .Where(q => q.RoomId == roomId && q.DeletedDate == null);
+
+            // Nếu là học sinh, lọc bỏ bản nháp
+            if (userRoom.Role == RoomRole.RegularUser)
+            {
+                query = query.Where(q => q.Status != QuizStatus.Draft);
+            }
+
             //lấy danh sách quiz
-            var quizzes = await _dataContext.Quizzes.AsNoTracking()
-                .Where(q => q.RoomId == roomId && q.DeletedDate == null)
-                .OrderByDescending(q => q.CreatedDate)
+            var quizzes = await query.OrderByDescending(q => q.CreatedDate)
                 .ToListAsync(ct);
 
+            // trả về list rỗng, không hiện lỗi quiz trống vì quiz có thể null
             if (!quizzes.Any() || quizzes.Count == 0)
-                return ApiResult.Fail("Chưa có quiz nào trong phòng này");
+                return ApiResult.Success(new List<QuizModel>()); 
 
             // convert sang DTO xử lý json options với List<string>
             var result = quizzes.Select(q =>
@@ -229,6 +238,38 @@ namespace server.Service.Services.Quizzes
             ApplyCorrectAnswer(dto, quiz, userRoom.Role);
 
             return ApiResult.Success(dto);
+        }
+
+        public async Task<ApiResult> UpdateStatus(UpdateQuizStatusModel model, CancellationToken ct = default)
+        {
+            var currentUserId = _userService.UserId;
+
+            var quiz = await _dataContext.Quizzes
+                .FirstOrDefaultAsync(q => q.Id == model.QuizId && q.DeletedDate == null, ct);
+
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+
+            // Check quyền: Chỉ Leader mới được đóng/mở quiz
+            var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
+            if (userRoom == null || userRoom.Role != RoomRole.GroupLeader)
+                return ApiResult.Fail("Bạn không có quyền thay đổi trạng thái Quiz này");
+
+            // update status
+            quiz.Status = model.NewStatus;
+            quiz.MarkUpdated();
+
+            await SaveChangesAsync(ct);
+
+            string msg;
+            if (model.NewStatus == QuizStatus.Active)
+            {
+                msg = "Đã bắt đầu Quiz";
+            }
+            else
+            {
+                msg = "Đã đóng Quiz";
+            }
+            return ApiResult.Success(new { quiz.Id, quiz.Status }, msg);
         }
 
         //check user trong phòng và không bị ban
