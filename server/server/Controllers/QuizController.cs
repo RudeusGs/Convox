@@ -16,6 +16,19 @@ namespace server.Controllers
             _quizService = quizService;
         }
 
+        [HttpGet("room/{roomId}")]
+        public async Task<IActionResult> GetAllByRoom(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetAllQuizzesByRoom(roomId, ct));
+        }
+
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetById(int id, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetQuizById(id, ct));
+        }
+
+
         [HttpPost("create")]
         public async Task<IActionResult> CreateQuiz([FromBody] CreateQuizModel model)
         {

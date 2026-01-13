@@ -7,5 +7,8 @@ namespace server.Service.Interfaces
     {
         Task<ApiResult> CreateQuiz(CreateQuizModel model);
         Task<ApiResult> SubmitQuiz(SubmitQuizModel model);
+
+        Task<ApiResult> GetAllQuizzesByRoom(int roomId, CancellationToken ct = default);
+        Task<ApiResult> GetQuizById(int id, CancellationToken ct = default);
     }
 }
