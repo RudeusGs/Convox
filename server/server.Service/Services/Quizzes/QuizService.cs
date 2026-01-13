@@ -90,6 +90,92 @@ namespace server.Service.Services.Quizzes
             return ApiResult.Success(new { IsCorrect = isCorrect }, isCorrect ? "Chính xác!" : "Rất tiếc, sai rồi!");
         }
 
+        public async Task<ApiResult> UpdateQuiz(UpdateQuizModel model, CancellationToken ct)
+        {
+            var currentUserId = _userService.UserId;
+
+            var quiz = await _dataContext.Quizzes
+                .FirstOrDefaultAsync(q => q.Id == model.Id && q.DeletedDate == null, ct);
+
+            if (quiz == null)
+                return ApiResult.Fail("Quiz không tồn tại");
+
+            //check quyền user trong phòng
+            var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
+
+            if (userRoom == null)
+                return ApiResult.Fail("Bạn không có truy cập phòng này");
+
+            if (userRoom.Role == RoomRole.RegularUser)
+                return ApiResult.Fail("Bạn không có quyền sửa quiz trong phòng này");
+
+            // update data
+            quiz.Question = model.Question;
+            quiz.OptionsJson = JsonSerializer.Serialize(model.Options); // Serialize lại JSON
+            quiz.CorrectAnswer = model.CorrectAnswer;
+            quiz.TimeQuestionSeconds = model.TimeQuestionSeconds;
+
+            // update ngày
+            quiz.MarkUpdated();
+            await SaveChangesAsync(ct);
+
+            return ApiResult.Success(quiz, "Cập nhật thành công");
+
+        }
+
+        public async Task<ApiResult> DeleteQuiz(int quizId, CancellationToken ct = default)
+        {
+            var currentUserId = _userService.UserId;
+
+            var quiz = await _dataContext.Quizzes
+                .FirstOrDefaultAsync(q => q.Id == quizId && q.DeletedDate == null, ct);
+
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+
+            // Check quyền
+            var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
+
+            // Chỉ Leader mới được xóa
+            if (userRoom == null || userRoom.Role == RoomRole.RegularUser)
+                return ApiResult.Fail("Bạn không có quyền xóa quiz này");
+
+            quiz.MarkDeleted();
+
+            await SaveChangesAsync(ct);
+
+            return ApiResult.Success(null, "Xóa quiz thành công");
+        }
+
+        public async Task<ApiResult> DeleteAllQuizzesInRoom(int roomId, CancellationToken ct = default)
+        {
+            var currentUserId = _userService.UserId;
+
+            // Check quyền
+            var userRoom = await GetActiveUserRoomAsync(roomId, currentUserId, ct);
+
+            // Chỉ Leader được clear
+            if (userRoom == null || userRoom.Role != RoomRole.GroupLeader)
+                return ApiResult.Fail("Chỉ Trưởng phòng mới có quyền xóa toàn bộ câu hỏi");
+
+            // Lấy tất cả quiz chưa xóa (vì MarkDeleted chỉ ẩn chứ không xóa hẳn khỏi db)
+            var quizzes = await _dataContext.Quizzes
+                .Where(q => q.RoomId == roomId && q.DeletedDate == null)
+                .ToListAsync(ct);
+
+            if (!quizzes.Any())
+                return ApiResult.Fail("Phòng này chưa có câu hỏi nào");
+
+            // Đánh dấu xóa tất cả
+            foreach (var quiz in quizzes)
+            {
+                quiz.MarkDeleted();
+            }
+
+            await SaveChangesAsync(ct);
+
+            return ApiResult.Success(null, $"Đã xóa {quizzes.Count} câu hỏi");
+        }
+
         public async Task<ApiResult> GetAllQuizzesByRoom(int roomId, CancellationToken ct = default)
         {
             var currentUserId = _userService.UserId;
@@ -105,6 +191,9 @@ namespace server.Service.Services.Quizzes
                 .Where(q => q.RoomId == roomId && q.DeletedDate == null)
                 .OrderByDescending(q => q.CreatedDate)
                 .ToListAsync(ct);
+
+            if (!quizzes.Any() || quizzes.Count == 0)
+                return ApiResult.Fail("Chưa có quiz nào trong phòng này");
 
             // convert sang DTO xử lý json options với List<string>
             var result = quizzes.Select(q =>

@@ -54,5 +54,34 @@ namespace server.Controllers
             return FromApiResult(await _quizService.SubmitQuiz(model));
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateQuiz(int id, [FromBody] UpdateQuizModel model, CancellationToken ct)
+        {
+            if (id != model.Id)
+            {
+                return FailResultFromErrors("ID không khớp", new[] { "Id trên URL và Body phải giống nhau" });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return FailResultFromErrors("Dữ liệu không hợp lệ", errors);
+            }
+
+            return FromApiResult(await _quizService.UpdateQuiz(model, ct));
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteQuiz(int quizId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.DeleteQuiz(quizId, ct));
+        }
+
+        [HttpDelete("room/{roomId}")]
+        public async Task<IActionResult> DeleteAllInRoom(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.DeleteAllQuizzesInRoom(roomId, ct));
+        }
+
     }
 }
