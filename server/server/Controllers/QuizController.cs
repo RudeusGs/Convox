@@ -95,5 +95,29 @@ namespace server.Controllers
             return FromApiResult(await _quizService.UpdateBulkStatus(model, ct));
         }
 
+        [HttpGet("{id}/stats")]
+        public async Task<IActionResult> GetStats(int id, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetQuizStats(id, ct));
+        }
+
+        [HttpGet("{id}/submissions")]
+        public async Task<IActionResult> GetSubmissions(int id, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetQuizSubmissions(id, ct));
+        }
+            
+
+        [HttpGet("room/{roomId}/scoreboard")]
+        public async Task<IActionResult> GetScoreboard(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetRoomScoreboard(roomId, ct));
+        }
+
+        [HttpGet("room/{roomId}/my-results")]
+        public async Task<IActionResult> GetMyResults(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetMyResults(roomId, ct));
+        } 
     }
 }
