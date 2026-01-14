@@ -1,11 +1,11 @@
 ﻿using server.Domain.Base;
 
-namespace server.Domain.Entities
+namespace server.Domain.Entities.Chats
 {
-    public class ChatMessageBreakoutRoom : EntityBase
+    public class ChatP2P : EntityBase
     {
-        public int BreakoutRoomId { get; set; } // Id phòng con gửi tin
-        public int UserId { get; set; } // Người gửi
+        public int ReceiverId { get; set; } // Id người nhận
+        public int SenderId { get; set; } // Người gửi
         public string Message { get; set; } // Nội dung
         public string MessageType { get; set; } // text, emoji, system...
         public string? ImageUrl { get; set; }

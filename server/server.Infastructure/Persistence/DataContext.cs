@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using server.Domain.Entities;
+using server.Domain.Entities.Chats;
 
 namespace server.Infrastructure.Persistence
 {

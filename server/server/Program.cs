@@ -1,5 +1,4 @@
 using Microsoft.OpenApi.Models;
-using server.Hubs;
 using server.Infrastructure.Configurations;
 using server.Infrastructure.Extensions;
 using server.Service.Configurations;

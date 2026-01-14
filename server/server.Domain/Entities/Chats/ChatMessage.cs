@@ -1,6 +1,6 @@
 ﻿using server.Domain.Base;
 
-namespace server.Domain.Entities
+namespace server.Domain.Entities.Chats
 {
     // Chat message
     public class ChatMessage : EntityBase

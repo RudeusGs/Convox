@@ -5,8 +5,10 @@ using server.Service.Common.IServices;
 using server.Service.Common.Services;
 using server.Service.Interfaces;
 using server.Service.Interfaces.Authentication;
+using server.Service.Services;
 using server.Service.Services.Authentication;
 using server.Service.Services.Badges;
+using server.Service.Services.Chats;
 using server.Service.Services.Quizzes;
 using server.Service.Services.Rooms;
 
@@ -40,6 +42,10 @@ namespace server.Service.Configurations
             services.AddScoped<IUserBadgeService, UserBadgeService>();
             services.AddScoped<IUserRoomService, UserRoomService>();
             services.AddScoped<IQuizService, QuizService>();
+            services.AddScoped<IRoomChatService, RoomChatService>();
+            services.AddScoped<IBreakroomChatService, BreakroomChatService>();
+            services.AddScoped<IP2PChatService, P2PChatService>();
+            services.AddScoped<IChatUploadService, ChatUploadService>();
 
             #endregion
 
