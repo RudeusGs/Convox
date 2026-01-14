@@ -7,6 +7,7 @@ using server.Service.Interfaces;
 using server.Service.Interfaces.Authentication;
 using server.Service.Services.Authentication;
 using server.Service.Services.Badges;
+using server.Service.Services.Quizzes;
 using server.Service.Services.Rooms;
 
 namespace server.Service.Configurations
@@ -38,6 +39,7 @@ namespace server.Service.Configurations
             services.AddScoped<IBadgeService, BadgeService>();
             services.AddScoped<IUserBadgeService, UserBadgeService>();
             services.AddScoped<IUserRoomService, UserRoomService>();
+            services.AddScoped<IQuizService, QuizService>();
 
             #endregion
 
