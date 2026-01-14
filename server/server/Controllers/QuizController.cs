@@ -16,23 +16,22 @@ namespace server.Controllers
             _quizService = quizService;
         }
 
-        [HttpGet("room/{roomId}")]
+        [HttpGet("get-all-by-room")]
         public async Task<IActionResult> GetAllByRoom(int roomId, CancellationToken ct)
         {
             return FromApiResult(await _quizService.GetAllQuizzesByRoom(roomId, ct));
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("get-by-id")]
         public async Task<IActionResult> GetById(int id, CancellationToken ct)
         {
             return FromApiResult(await _quizService.GetQuizById(id, ct));
         }
 
 
-        [HttpPost("create")]
+        [HttpPost("create-quiz")]
         public async Task<IActionResult> CreateQuiz([FromBody] CreateQuizModel model)
         {
-            // method FailResultFromErrors để trả lỗi validation trong BaseController
             if (!ModelState.IsValid)
             {
                 var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
@@ -42,7 +41,7 @@ namespace server.Controllers
             return FromApiResult(await _quizService.CreateQuiz(model));
         }
 
-        [HttpPost("submit")]
+        [HttpPost("submit-quiz")]
         public async Task<IActionResult> SubmitQuiz([FromBody] SubmitQuizModel model)
         {
             if (!ModelState.IsValid)
@@ -54,7 +53,7 @@ namespace server.Controllers
             return FromApiResult(await _quizService.SubmitQuiz(model));
         }
 
-        [HttpPut("{id}")]
+        [HttpPut("update-quiz")]
         public async Task<IActionResult> UpdateQuiz(int id, [FromBody] UpdateQuizModel model, CancellationToken ct)
         {
             if (id != model.Id)
@@ -71,13 +70,13 @@ namespace server.Controllers
             return FromApiResult(await _quizService.UpdateQuiz(model, ct));
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("delete-quiz")]
         public async Task<IActionResult> DeleteQuiz(int quizId, CancellationToken ct)
         {
             return FromApiResult(await _quizService.DeleteQuiz(quizId, ct));
         }
 
-        [HttpDelete("room/{roomId}")]
+        [HttpDelete("delete-all-in-room")]
         public async Task<IActionResult> DeleteAllInRoom(int roomId, CancellationToken ct)
         {
             return FromApiResult(await _quizService.DeleteAllQuizzesInRoom(roomId, ct));
@@ -95,29 +94,29 @@ namespace server.Controllers
             return FromApiResult(await _quizService.UpdateBulkStatus(model, ct));
         }
 
-        [HttpGet("{id}/stats")]
+        [HttpGet("get-stats")]
         public async Task<IActionResult> GetStats(int id, CancellationToken ct)
         {
             return FromApiResult(await _quizService.GetQuizStats(id, ct));
         }
 
-        [HttpGet("{id}/submissions")]
+        [HttpGet("get-submissions")]
         public async Task<IActionResult> GetSubmissions(int id, CancellationToken ct)
         {
             return FromApiResult(await _quizService.GetQuizSubmissions(id, ct));
         }
-            
 
-        [HttpGet("room/{roomId}/scoreboard")]
+
+        [HttpGet("get-score-board")]
         public async Task<IActionResult> GetScoreboard(int roomId, CancellationToken ct)
         {
             return FromApiResult(await _quizService.GetRoomScoreboard(roomId, ct));
         }
 
-        [HttpGet("room/{roomId}/my-results")]
+        [HttpGet("get-my-results")]
         public async Task<IActionResult> GetMyResults(int roomId, CancellationToken ct)
         {
             return FromApiResult(await _quizService.GetMyResults(roomId, ct));
-        } 
+        }
     }
 }
