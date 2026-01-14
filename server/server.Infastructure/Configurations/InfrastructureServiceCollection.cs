@@ -7,7 +7,9 @@ using Microsoft.IdentityModel.Tokens;
 using server.Domain.Constants;
 using server.Domain.Entities;
 using server.Infrastructure.Persistence;
+using System;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace server.Infrastructure.Configurations
 {
@@ -18,7 +20,6 @@ namespace server.Infrastructure.Configurations
             services.AddSingleton<IDbContextFactory, DbContextFactory>();
             services.AddAppDbContext(configuration);
 
-            // Thêm Identity
             services.AddIdentity<User, IdentityRole<int>>()
                 .AddDefaultTokenProviders()
                 .AddEntityFrameworkStores<DataContext>();
@@ -27,12 +28,12 @@ namespace server.Infrastructure.Configurations
 
             services.AddAuthorization(options =>
             {
-                options.AddPolicy("Convox", policy => policy.RequireRole(RoleConstants.ADMIN, RoleConstants.REGULAR_USER));
+                options.AddPolicy("Convox", policy =>
+                    policy.RequireRole(RoleConstants.ADMIN, RoleConstants.REGULAR_USER));
             });
 
             return services;
         }
-
 
         private static IServiceCollection AddAppDbContext(this IServiceCollection services, IConfiguration configuration)
         {
@@ -46,27 +47,48 @@ namespace server.Infrastructure.Configurations
 
         private static IServiceCollection AddAppAuthentication(this IServiceCollection services, IConfiguration configuration)
         {
-            services
-                .AddAuthentication(options =>
+            services.AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(options =>
+            {
+                options.SaveToken = true;
+                options.RequireHttpsMetadata = false;
+
+                options.TokenValidationParameters = new TokenValidationParameters
                 {
-                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
-                })
-                .AddJwtBearer(options =>
+                    ValidateIssuer = true,
+                    ValidateAudience = false,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidIssuer = configuration["JWT:ValidIssuer"],
+                    IssuerSigningKey = new SymmetricSecurityKey(
+                        Encoding.UTF8.GetBytes(configuration["JWT:Secret"])
+                    ),
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                options.Events = new JwtBearerEvents
                 {
-                    options.SaveToken = true;
-                    options.RequireHttpsMetadata = false;
-                    options.TokenValidationParameters = new TokenValidationParameters
+                    OnMessageReceived = context =>
                     {
-                        ValidateIssuer = true,
-                        ValidateAudience = false,
-                        ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
-                        ValidIssuer = configuration["JWT:ValidIssuer"],
-                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["JWT:Secret"]))
-                    };
-                });
+                        var accessToken = context.Request.Query["access_token"];
+                        var path = context.HttpContext.Request.Path;
+
+                        if (!string.IsNullOrEmpty(accessToken) &&
+                            path.StartsWithSegments("/hubs/chat"))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    }
+                };
+            });
+
             return services;
         }
     }

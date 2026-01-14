@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
+using server.Hubs;
 using server.Models.Chats;
 using server.Service.Interfaces;
 using server.Service.Models.Chats;
@@ -7,18 +9,24 @@ using server.Service.Models.Chats;
 namespace server.Controllers.Chats
 {
     [Authorize]
+    [ApiController]
     [Route("api/chat")]
     public class P2PChatController : ChatBaseController
     {
         private readonly IP2PChatService _p2pChatService;
+        private readonly IHubContext<ChatHub> _hub;
 
-        public P2PChatController(IP2PChatService p2pChatService)
+        public P2PChatController(IP2PChatService p2pChatService, IHubContext<ChatHub> hub)
         {
             _p2pChatService = p2pChatService;
+            _hub = hub;
         }
 
-        [HttpGet("get-p2p-chat-history")]
-        public async Task<IActionResult> GetP2PChatHistory(int otherUserId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        [HttpGet("p2p/{otherUserId:int}/history")]
+        public async Task<IActionResult> GetP2PChatHistory(
+            [FromRoute] int otherUserId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 50)
         {
             var userId = GetUserId();
             if (!userId.HasValue)
@@ -28,8 +36,10 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        [HttpPost("send-message-p2p")]
-        public async Task<IActionResult> SendMessageP2P(int receiverId, [FromBody] SendMessageRequest request)
+        [HttpPost("p2p/{receiverId:int}/messages")]
+        public async Task<IActionResult> SendMessageP2P(
+            [FromRoute] int receiverId,
+            [FromBody] SendMessageRequest request)
         {
             var userId = GetUserId();
             if (!userId.HasValue)
@@ -44,6 +54,14 @@ namespace server.Controllers.Chats
             };
 
             var result = await _p2pChatService.SendMessageWithImagesToP2P(model);
+            if (!result.IsSuccess) return FromApiResult(result);
+
+            await _hub.Clients.Group($"user_{receiverId}")
+                .SendAsync("ReceiveP2PMessage", result.Data);
+
+            await _hub.Clients.Group($"user_{userId.Value}")
+                .SendAsync("ReceiveP2PMessage", result.Data);
+
             return FromApiResult(result);
         }
     }
