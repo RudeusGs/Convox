@@ -9,5 +9,6 @@ namespace server.Domain.Entities
         public int UserId { get; set; } // Người gửi
         public string Message { get; set; } // Nội dung
         public string MessageType { get; set; } // text, emoji, system...
+        public string? ImageUrl { get; set; }
     }
 }

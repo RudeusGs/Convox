@@ -1,0 +1,122 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using server.Service.Interfaces;
+using server.Service.Models.Quizzes;
+
+namespace server.Controllers
+{
+    [Authorize]
+    public class QuizController : BaseController
+    {
+        private readonly IQuizService _quizService;
+
+        public QuizController(IQuizService quizService)
+        {
+            _quizService = quizService;
+        }
+
+        [HttpGet("get-all-by-room")]
+        public async Task<IActionResult> GetAllByRoom(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetAllQuizzesByRoom(roomId, ct));
+        }
+
+        [HttpGet("get-by-id")]
+        public async Task<IActionResult> GetById(int id, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetQuizById(id, ct));
+        }
+
+
+        [HttpPost("create-quiz")]
+        public async Task<IActionResult> CreateQuiz([FromBody] CreateQuizModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return FailResultFromErrors("Dữ liệu không hợp lệ", errors);
+            }
+
+            return FromApiResult(await _quizService.CreateQuiz(model));
+        }
+
+        [HttpPost("submit-quiz")]
+        public async Task<IActionResult> SubmitQuiz([FromBody] SubmitQuizModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return FailResultFromErrors("Dữ liệu không hợp lệ", errors);
+            }
+
+            return FromApiResult(await _quizService.SubmitQuiz(model));
+        }
+
+        [HttpPut("update-quiz")]
+        public async Task<IActionResult> UpdateQuiz(int id, [FromBody] UpdateQuizModel model, CancellationToken ct)
+        {
+            if (id != model.Id)
+            {
+                return FailResultFromErrors("ID không khớp", new[] { "Id trên URL và Body phải giống nhau" });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+                return FailResultFromErrors("Dữ liệu không hợp lệ", errors);
+            }
+
+            return FromApiResult(await _quizService.UpdateQuiz(model, ct));
+        }
+
+        [HttpDelete("delete-quiz")]
+        public async Task<IActionResult> DeleteQuiz(int quizId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.DeleteQuiz(quizId, ct));
+        }
+
+        [HttpDelete("delete-all-in-room")]
+        public async Task<IActionResult> DeleteAllInRoom(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.DeleteAllQuizzesInRoom(roomId, ct));
+        }
+
+        [HttpPut("update-status")]
+        public async Task<IActionResult> UpdateStatus([FromBody] UpdateQuizStatusModel model, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.UpdateStatus(model, ct));
+        }
+
+        [HttpPut("update-status-bulk")]
+        public async Task<IActionResult> UpdateBulkStatus([FromBody] UpdateBulkStatusModel model, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.UpdateBulkStatus(model, ct));
+        }
+
+        [HttpGet("get-stats")]
+        public async Task<IActionResult> GetStats(int id, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetQuizStats(id, ct));
+        }
+
+        [HttpGet("get-submissions")]
+        public async Task<IActionResult> GetSubmissions(int id, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetQuizSubmissions(id, ct));
+        }
+
+
+        [HttpGet("get-score-board")]
+        public async Task<IActionResult> GetScoreboard(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetRoomScoreboard(roomId, ct));
+        }
+
+        [HttpGet("get-my-results")]
+        public async Task<IActionResult> GetMyResults(int roomId, CancellationToken ct)
+        {
+            return FromApiResult(await _quizService.GetMyResults(roomId, ct));
+        }
+    }
+}

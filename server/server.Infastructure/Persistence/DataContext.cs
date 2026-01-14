@@ -19,11 +19,14 @@ namespace server.Infrastructure.Persistence
         public DbSet<Document> Documents { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Quiz> Quizzes { get; set; }
+        public DbSet<QuizResponse> QuizResponses { get; set; }
         public DbSet<Room> Rooms { get; set; }
         public DbSet<Submission> Submissions { get; set; }
         public DbSet<UserBadge> UserBadges { get; set; }
         public DbSet<UserRoom> UserRooms { get; set; }
         public DbSet<UserRoomControl> UserRoomControls { get; set; }
+        public DbSet<ChatMessageBreakoutRoom> ChatMessageBreakoutRooms { get; set; }
+        public DbSet<ChatP2P> ChatP2Ps { get; set; }
 
     }
 }
