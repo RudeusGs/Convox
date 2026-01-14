@@ -1,9 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using server.Domain.Entities;
 using server.Domain.Entities.Chats;
 using server.Infrastructure.Persistence;
 using server.Service.Common.IServices;
-using server.Service.Common.Services;
 using server.Service.Interfaces;
 using server.Service.Models;
 using server.Service.Models.Chats;
