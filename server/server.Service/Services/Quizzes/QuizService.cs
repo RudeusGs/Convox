@@ -332,7 +332,7 @@ namespace server.Service.Services.Quizzes
 
             if (stats == null) // Chưa ai làm
             {
-                return ApiResult.Success(new QuizStatsDto { QuizId = quizId });
+                return ApiResult.Success(new QuizStatsDto { QuizId = quizId }, "Chưa có câu trả lời");
             }
 
             // Tính %
@@ -341,7 +341,7 @@ namespace server.Service.Services.Quizzes
                 stats.AccuracyRate = Math.Round((double)stats.CorrectCount / stats.TotalAnswers * 100, 2);
             }
 
-            return ApiResult.Success(stats);
+            return ApiResult.Success(stats, "Lấy thống kê thành công");
         }
 
         // danh sách bài nộp của 1 câu
@@ -372,7 +372,7 @@ namespace server.Service.Services.Quizzes
                                          SubmittedAt = qr.CreatedDate ?? DateTime.UtcNow
                                      }).ToListAsync(ct);
 
-            return ApiResult.Success(submissions);
+            return ApiResult.Success(submissions, $"Lấy danh sách bài nộp của quiz {quizId} thành công");
         }
 
         // bảng điểm tổng quát (Danh sách hs, tiến độ làm bài)
@@ -424,7 +424,7 @@ namespace server.Service.Services.Quizzes
                 };
             }).OrderByDescending(x => x.CorrectCount).ThenByDescending(x => x.AnsweredCount).ToList();
 
-            return ApiResult.Success(result);
+            return ApiResult.Success(result, "Lấy bảng điểm thành công");
         }
 
         // xem kết quả cá nhân
@@ -483,7 +483,7 @@ namespace server.Service.Services.Quizzes
                 return dto;
             }).ToList();
 
-            return ApiResult.Success(result);
+            return ApiResult.Success(result, "Lấy kết quả bài làm thành công");
         }
 
         //check user trong phòng và không bị ban
