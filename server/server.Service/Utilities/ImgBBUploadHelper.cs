@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
@@ -10,7 +11,9 @@ namespace server.Service.Utilities
     /// 
     /// Mục đích:
     /// - Cung cấp hàm static để upload ảnh từ bất kỳ service nào
+    /// - Tái sử dụng logic upload, không lặp code
     /// - Các bảng lưu URL ảnh thông qua thuộc tính riêng
+    /// - OPTIMIZE: Sử dụng HttpClient singleton và upload song song
     /// 
     /// Cách sử dụng:
     /// var imageUrl = await ImgBBUploadHelper.UploadImageAsync(file, configuration);
@@ -24,6 +27,14 @@ namespace server.Service.Utilities
     public static class ImgBBUploadHelper
     {
         /// <summary>
+        /// Singleton HttpClient cho performance tốt hơn (connection pooling)
+        /// </summary>
+        private static readonly HttpClient _sharedHttpClient = new HttpClient
+        {
+            Timeout = TimeSpan.FromSeconds(60) // Default timeout, sẽ override khi cần
+        };
+
+        /// <summary>
         /// JsonSerializerOptions cho deserialize ImgBB response.
         /// </summary>
         private static readonly JsonSerializerOptions JsonOptions = new()
@@ -31,6 +42,56 @@ namespace server.Service.Utilities
             PropertyNameCaseInsensitive = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         };
+
+        /// <summary>
+        /// Upload nhiều ảnh song song để tăng tốc độ.
+        /// </summary>
+        /// <param name="files">Danh sách file ảnh cần upload</param>
+        /// <param name="configuration">IConfiguration để lấy settings</param>
+        /// <param name="maxConcurrency">Số lượng upload đồng thời tối đa (mặc định 4)</param>
+        /// <param name="cancellationToken">Token để cancel request</param>
+        /// <returns>Tuple chứa danh sách URL thành công và danh sách lỗi</returns>
+        public static async Task<(List<string> SuccessUrls, List<string> Errors)> UploadImagesParallelAsync(
+            List<IFormFile> files,
+            IConfiguration configuration,
+            int maxConcurrency = 4,
+            CancellationToken cancellationToken = default)
+        {
+            if (files == null || files.Count == 0)
+                return (new List<string>(), new List<string> { "Không có file nào được upload" });
+
+            var successUrls = new List<string>();
+            var errors = new List<string>();
+            var semaphore = new SemaphoreSlim(maxConcurrency, maxConcurrency);
+
+            var uploadTasks = files.Select(async file =>
+            {
+                await semaphore.WaitAsync(cancellationToken);
+                try
+                {
+                    var url = await UploadImageAsync(file, configuration, cancellationToken);
+                    lock (successUrls)
+                    {
+                        successUrls.Add(url);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lock (errors)
+                    {
+                        errors.Add($"Lỗi upload file {file.FileName}: {ex.Message}");
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+
+            await Task.WhenAll(uploadTasks);
+
+            return (successUrls, errors);
+        }
 
         /// <summary>
         /// Upload ảnh lên ImgBB từ IFormFile.
@@ -73,36 +134,44 @@ namespace server.Service.Utilities
 
             try
             {
-                using (var httpClient = new HttpClient())
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
                     using (var content = new MultipartFormDataContent())
                     {
-                        using (var fileStream = file.OpenReadStream())
+                        // Đọc file vào memory để tránh giữ stream mở lâu
+                        byte[] fileBytes;
+                        using (var memoryStream = new MemoryStream())
                         {
-                            var fileContent = new StreamContent(fileStream);
-                            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
-
-                            content.Add(fileContent, "image", file.FileName);
-                            content.Add(new StringContent(apiKey), "key");
-                            var response = await httpClient.PostAsync(apiUrl, content, cancellationToken);
-
-                            if (!response.IsSuccessStatusCode)
-                                throw new InvalidOperationException(
-                                    $"ImgBB API trả về error: {response.StatusCode}");
-                            var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
-                            var responseContent = JsonSerializer.Deserialize<ImgBBApiResponse>(jsonString, JsonOptions);
-
-                            if (responseContent?.Data?.Url == null)
-                                throw new InvalidOperationException("Không thể lấy URL ảnh từ ImgBB");
-
-                            return responseContent.Data.Url;
+                            await file.CopyToAsync(memoryStream, cts.Token);
+                            fileBytes = memoryStream.ToArray();
                         }
+
+                        var fileContent = new ByteArrayContent(fileBytes);
+                        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                            file.ContentType ?? "application/octet-stream");
+
+                        content.Add(fileContent, "image", file.FileName);
+                        content.Add(new StringContent(apiKey), "key");
+
+                        var response = await _sharedHttpClient.PostAsync(apiUrl, content, cts.Token);
+
+                        if (!response.IsSuccessStatusCode)
+                            throw new InvalidOperationException(
+                                $"ImgBB API trả về error: {response.StatusCode}");
+
+                        var jsonString = await response.Content.ReadAsStringAsync(cts.Token);
+                        var responseContent = JsonSerializer.Deserialize<ImgBBApiResponse>(jsonString, JsonOptions);
+
+                        if (responseContent?.Data?.Url == null)
+                            throw new InvalidOperationException("Không thể lấy URL ảnh từ ImgBB");
+
+                        return responseContent.Data.Url;
                     }
                 }
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 throw new InvalidOperationException(
                     $"Upload timeout sau {timeoutSeconds} giây");
@@ -150,9 +219,9 @@ namespace server.Service.Utilities
 
             try
             {
-                using (var httpClient = new HttpClient())
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    httpClient.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
+                    cts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
 
                     using (var content = new MultipartFormDataContent())
                     {
@@ -164,13 +233,13 @@ namespace server.Service.Utilities
                         content.Add(fileContent, "image", fileName_safe);
                         content.Add(new StringContent(apiKey), "key");
 
-                        var response = await httpClient.PostAsync(apiUrl, content, cancellationToken);
+                        var response = await _sharedHttpClient.PostAsync(apiUrl, content, cts.Token);
 
                         if (!response.IsSuccessStatusCode)
                             throw new InvalidOperationException(
                                 $"ImgBB API trả về error: {response.StatusCode}");
 
-                        var jsonString = await response.Content.ReadAsStringAsync(cancellationToken);
+                        var jsonString = await response.Content.ReadAsStringAsync(cts.Token);
                         var responseContent = JsonSerializer.Deserialize<ImgBBApiResponse>(jsonString, JsonOptions);
 
                         if (responseContent?.Data?.Url == null)
@@ -180,7 +249,7 @@ namespace server.Service.Utilities
                     }
                 }
             }
-            catch (TaskCanceledException)
+            catch (OperationCanceledException)
             {
                 throw new InvalidOperationException(
                     $"Upload timeout sau {timeoutSeconds} giây");
