@@ -56,7 +56,7 @@ namespace server.Service.Services
         /// entity.CreatedAt = Now;
         /// entity.UpdatedAt = Now;
         /// </summary>
-        protected DateTime Now => DateTime.UtcNow.AddHours(7);
+        protected DateTime Now => DateTime.Now;
 
         /// <summary>
         /// Tên user hiện tại do IUserService cung cấp.

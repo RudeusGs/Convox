@@ -8,6 +8,7 @@ using server.Service.Interfaces.Authentication;
 using server.Service.Services;
 using server.Service.Services.Authentication;
 using server.Service.Services.Badges;
+using server.Service.Services.BreakoutRooms;
 using server.Service.Services.Chats;
 using server.Service.Services.Quizzes;
 using server.Service.Services.Rooms;
@@ -46,7 +47,7 @@ namespace server.Service.Configurations
             services.AddScoped<IBreakroomChatService, BreakroomChatService>();
             services.AddScoped<IP2PChatService, P2PChatService>();
             services.AddScoped<IChatUploadService, ChatUploadService>();
-
+            services.AddScoped<IBreakoutRoomService, BreakoutRoomService>();
             #endregion
 
             return services;
