@@ -1,4 +1,5 @@
 using Microsoft.OpenApi.Models;
+using server.Hubs;
 using server.Infrastructure.Configurations;
 using server.Infrastructure.Extensions;
 using server.Service.Configurations;
@@ -54,7 +55,7 @@ namespace server
                 options.AddPolicy("AllowAnyCorsPolicy", policy =>
                 {
                     policy
-                        .WithOrigins("http://localhost:5173")
+                        .WithOrigins("http://localhost:5173", "http://localhost:5174")
                         .AllowAnyHeader()
                         .AllowAnyMethod()
                         .AllowCredentials();
@@ -78,7 +79,6 @@ namespace server
             app.UseAuthorization();
             app.MapControllers();
             app.MapRealtimeHubs();
-
             app.Run();
         }
     }
