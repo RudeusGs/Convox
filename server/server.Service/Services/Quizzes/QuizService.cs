@@ -320,7 +320,7 @@ namespace server.Service.Services.Quizzes
                                          Avatar = u.Avatar,
                                          Answer = qr.Answer,
                                          IsCorrect = qr.IsCorrect,
-                                         SubmittedAt = qr.CreatedDate ?? DateTime.UtcNow
+                                         SubmittedAt = qr.CreatedDate ?? DateTime.Now
                                      }).ToListAsync(ct);
 
             return ApiResult.Success(submissions);

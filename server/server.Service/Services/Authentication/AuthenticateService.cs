@@ -100,8 +100,6 @@ namespace server.Service.Services.Authentication
                     var errors = createResult.Errors.Select(e => e.Description).ToList();
                     return ApiResult.Fail("Đăng ký thất bại.", errorCode: "CREATE_USER_FAILED", errors: errors);
                 }
-
-                // Ensure role exists and add user to role
                 await _roleManagementService.EnsureRegularRoleExistsAsync();
                 var (roleSucceeded, roleErrors) = await _roleManagementService.AddToRegularRoleAsync(user.Id);
                 if (!roleSucceeded)
