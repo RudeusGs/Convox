@@ -39,19 +39,7 @@ namespace server.Controllers
             }
 
             return FromApiResult(await _quizService.CreateQuiz(model));
-        }
-
-        [HttpPost("submit-quiz")]
-        public async Task<IActionResult> SubmitQuiz([FromBody] SubmitQuizModel model)
-        {
-            if (!ModelState.IsValid)
-            {
-                var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
-                return FailResultFromErrors("Dữ liệu không hợp lệ", errors);
-            }
-
-            return FromApiResult(await _quizService.SubmitQuiz(model));
-        }
+        }       
 
         [HttpPut("update-quiz")]
         public async Task<IActionResult> UpdateQuiz(int id, [FromBody] UpdateQuizModel model, CancellationToken ct)
@@ -92,31 +80,6 @@ namespace server.Controllers
         public async Task<IActionResult> UpdateBulkStatus([FromBody] UpdateBulkStatusModel model, CancellationToken ct)
         {
             return FromApiResult(await _quizService.UpdateBulkStatus(model, ct));
-        }
-
-        [HttpGet("get-stats")]
-        public async Task<IActionResult> GetStats(int id, CancellationToken ct)
-        {
-            return FromApiResult(await _quizService.GetQuizStats(id, ct));
-        }
-
-        [HttpGet("get-submissions")]
-        public async Task<IActionResult> GetSubmissions(int id, CancellationToken ct)
-        {
-            return FromApiResult(await _quizService.GetQuizSubmissions(id, ct));
-        }
-
-
-        [HttpGet("get-score-board")]
-        public async Task<IActionResult> GetScoreboard(int roomId, CancellationToken ct)
-        {
-            return FromApiResult(await _quizService.GetRoomScoreboard(roomId, ct));
-        }
-
-        [HttpGet("get-my-results")]
-        public async Task<IActionResult> GetMyResults(int roomId, CancellationToken ct)
-        {
-            return FromApiResult(await _quizService.GetMyResults(roomId, ct));
-        }
+        }        
     }
 }

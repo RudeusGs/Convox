@@ -42,6 +42,7 @@ namespace server.Service.Configurations
             services.AddScoped<IUserBadgeService, UserBadgeService>();
             services.AddScoped<IUserRoomService, UserRoomService>();
             services.AddScoped<IQuizService, QuizService>();
+            services.AddScoped<IQuizResponseService, QuizResponseService>();
 
             #endregion
 
