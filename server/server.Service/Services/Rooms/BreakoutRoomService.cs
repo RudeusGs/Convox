@@ -9,43 +9,34 @@ using server.Service.Models.BreakoutRooms;
 namespace server.Service.Services.BreakoutRooms
 {
     /// <summary>
-    /// Service xử lý BreakoutRoom (phòng thảo luận nhỏ thuộc một Room cha).
+    /// BreakoutRoomService: xử lý nghiệp vụ cho BreakoutRoom (phòng thảo luận nhỏ thuộc một Room cha).
     ///
-    /// Cách dùng chung:
-    /// - Controller gọi các hàm trong service và trả về ApiResult.
-    /// - Service tự validate input, query DB và xử lý nghiệp vụ.
-    /// - Chỉ thao tác trên record chưa xoá mềm: DeletedDate == null.
+    /// Quy tắc quyền (theo yêu cầu):
+    /// - User nào cũng có thể tạo/update/delete breakout room
+    /// - Nhưng bắt buộc user phải là thành viên của Room cha (UserRooms tồn tại, DeletedDate == null)
+    /// - Và không bị ban (IsBan == false)
     ///
-    /// Quy ước thời gian:
-    /// - CreatedDate set bằng BaseService.Now khi tạo mới.
-    /// - UpdatedDate/DeletedDate set bằng EntityBase.MarkUpdated/MarkDeleted (DateTime.Now).
-    ///
-    /// Lưu ý:
-    /// - ExpireAt:
-    ///   + null  => không giới hạn thời gian
-    ///   + có giá trị => phải lớn hơn thời điểm hiện tại (Now)
+    /// Quy ước:
+    /// - Chỉ thao tác record chưa xoá mềm: DeletedDate == null
+    /// - Thời gian audit dùng CHUNG BaseService.Now (UTC+7) để đồng bộ realtime:
+    ///   + CreatedDate khi tạo
+    ///   + UpdatedDate khi update
+    ///   + DeletedDate khi delete (soft delete)
+    /// - KHÔNG dùng EntityBase.MarkUpdated/MarkDeleted vì DateTime.Now phụ thuộc timezone của server (có thể là UTC).
     /// </summary>
     public class BreakoutRoomService : BaseService, IBreakoutRoomService
     {
         /// <summary>
-        /// Khởi tạo BreakoutRoomService.
-        ///
-        /// Cách dùng:
-        /// - DI container sẽ inject DataContext và IUserService.
-        /// - Service con kế thừa BaseService để dùng _dataContext, _userService và Now.
+        /// Khởi tạo service với các dependency bắt buộc.
         /// </summary>
         public BreakoutRoomService(DataContext dataContext, IUserService userService)
             : base(dataContext, userService) { }
 
         /// <summary>
-        /// Lấy tất cả BreakoutRoom (chưa xoá mềm).
+        /// Lấy tất cả breakout rooms (chưa xoá mềm).
         ///
         /// Cách dùng:
-        /// - Gọi khi cần admin/list tổng tất cả breakout rooms.
-        ///
-        /// Trả về:
-        /// - ApiResult.Success(List&lt;BreakoutRoom&gt;) nếu thành công.
-        /// - ApiResult.Fail nếu lỗi hệ thống.
+        /// - Dùng cho admin/debug hoặc màn hình tổng hợp.
         /// </summary>
         public async Task<ApiResult> GetAllBreakoutRooms()
         {
@@ -66,17 +57,11 @@ namespace server.Service.Services.BreakoutRooms
         }
 
         /// <summary>
-        /// Lấy BreakoutRoom theo Id.
+        /// Lấy breakout room theo Id (chưa xoá mềm).
         ///
         /// Cách dùng:
-        /// - Gọi khi cần xem chi tiết một breakout room.
-        ///
-        /// Trả về:
-        /// - Success: object có các field tiện cho FE:
-        ///   Id, RoomName, ParentRoomId, StartAt, ExpireAt, DurationMinutes, RemainingMinutes, CreatedDate, UpdatedDate
-        /// - Fail:
-        ///   + VALIDATION_ERROR nếu id &lt;= 0
-        ///   + BREAKOUT_ROOM_NOT_FOUND nếu không tồn tại hoặc đã xoá mềm
+        /// - Dùng khi mở chi tiết breakout room.
+        /// - Chỉ member của phòng cha mới xem được (không bị ban).
         /// </summary>
         public async Task<ApiResult> GetBreakoutRoomById(int id)
         {
@@ -92,6 +77,9 @@ namespace server.Service.Services.BreakoutRooms
                 if (room == null)
                     return ApiResult.Fail("Không tìm thấy breakout room", "BREAKOUT_ROOM_NOT_FOUND");
 
+                var auth = await EnsureUserInParentRoomAsync(room.ParentRoomId);
+                if (!auth.IsSuccess) return auth;
+
                 var now = Now;
                 return ApiResult.Success(ToRoomResponse(room, now), "Lấy breakout room thành công");
             }
@@ -102,16 +90,11 @@ namespace server.Service.Services.BreakoutRooms
         }
 
         /// <summary>
-        /// Lấy danh sách BreakoutRoom theo ParentRoomId (phòng cha).
+        /// Lấy danh sách breakout rooms theo ParentRoomId (phòng cha).
         ///
         /// Cách dùng:
-        /// - Gọi khi FE mở phòng cha và cần list các breakout room con.
-        ///
-        /// Trả về:
-        /// - Success: List object response (mỗi item có StartAt/ExpireAt/DurationMinutes/RemainingMinutes)
-        /// - Fail:
-        ///   + VALIDATION_ERROR nếu parentRoomId &lt;= 0
-        ///   + PARENT_ROOM_NOT_FOUND nếu phòng cha không tồn tại
+        /// - FE mở phòng cha và cần list các breakout room con.
+        /// - Chỉ member của phòng cha mới xem được (không bị ban).
         /// </summary>
         public async Task<ApiResult> GetBreakoutRoomsByParentRoomId(int parentRoomId)
         {
@@ -127,13 +110,15 @@ namespace server.Service.Services.BreakoutRooms
                 if (!parentExists)
                     return ApiResult.Fail("Phòng cha không tồn tại", "PARENT_ROOM_NOT_FOUND");
 
+                var auth = await EnsureUserInParentRoomAsync(parentRoomId);
+                if (!auth.IsSuccess) return auth;
+
                 var rooms = await _dataContext.BreakoutRooms
                     .AsNoTracking()
                     .Where(x => x.ParentRoomId == parentRoomId && x.DeletedDate == null)
                     .OrderByDescending(x => x.CreatedDate)
                     .ToListAsync();
 
-                // Dùng cùng 1 mốc now cho list để RemainingMinutes nhất quán
                 var now = Now;
                 var data = rooms.Select(r => ToRoomResponse(r, now)).ToList();
 
@@ -146,24 +131,11 @@ namespace server.Service.Services.BreakoutRooms
         }
 
         /// <summary>
-        /// Tạo mới BreakoutRoom.
+        /// Tạo mới breakout room.
         ///
-        /// Cách dùng:
-        /// - FE gửi AddBreakoutRoomModel:
-        ///   + RoomName: tên phòng
-        ///   + ParentRoomId: id phòng cha
-        ///   + ExpireAt: thời điểm kết thúc (null nếu không giới hạn)
-        ///
-        /// Logic chính:
-        /// - Validate input
-        /// - Check phòng cha tồn tại
-        /// - Chặn trùng tên trong cùng phòng cha (case-insensitive)
-        /// - Validate ExpireAt (ExpireAt phải &gt; Now nếu có)
-        /// - Tạo record, set CreatedDate = Now
-        ///
-        /// Trả về:
-        /// - Success: object response (kèm StartAt/ExpireAt/DurationMinutes/RemainingMinutes)
-        /// - Fail: VALIDATION_ERROR / PARENT_ROOM_NOT_FOUND / DUPLICATE_BREAKOUT_ROOM_NAME / INTERNAL_ERROR
+        /// Quyền:
+        /// - User nào cũng tạo được
+        /// - Nhưng phải là thành viên Room cha và không bị ban
         /// </summary>
         public async Task<ApiResult> AddBreakoutRoom(AddBreakoutRoomModel model)
         {
@@ -182,6 +154,10 @@ namespace server.Service.Services.BreakoutRooms
 
             try
             {
+                var currentUserId = _userService.UserId;
+                if (currentUserId <= 0)
+                    return ApiResult.Fail("Bạn chưa đăng nhập", "UNAUTHORIZED");
+
                 var parentExists = await _dataContext.Rooms
                     .AsNoTracking()
                     .AnyAsync(r => r.Id == model.ParentRoomId);
@@ -189,7 +165,9 @@ namespace server.Service.Services.BreakoutRooms
                 if (!parentExists)
                     return ApiResult.Fail("Phòng cha không tồn tại", "PARENT_ROOM_NOT_FOUND");
 
-                // Trùng tên trong cùng parent (case-insensitive)
+                var auth = await EnsureUserInParentRoomAsync(model.ParentRoomId);
+                if (!auth.IsSuccess) return auth;
+
                 var lowerName = roomName.ToLower();
                 var duplicate = await _dataContext.BreakoutRooms
                     .AsNoTracking()
@@ -211,7 +189,9 @@ namespace server.Service.Services.BreakoutRooms
                     Name = roomName,
                     ParentRoomId = model.ParentRoomId,
                     ExpireAt = expireAt,
-                    CreatedDate = startAt
+                    CreatedDate = startAt,
+                    UpdatedDate = null,
+                    DeletedDate = null
                 };
 
                 await _dataContext.BreakoutRooms.AddAsync(entity);
@@ -226,27 +206,11 @@ namespace server.Service.Services.BreakoutRooms
         }
 
         /// <summary>
-        /// Cập nhật BreakoutRoom (tên + expireAt) theo Id.
+        /// Cập nhật breakout room (tên + expireAt).
         ///
-        /// Cách dùng:
-        /// - FE gửi UpdateBreakoutRoomModel:
-        ///   + Id: breakoutRoomId
-        ///   + RoomName: tên mới
-        ///   + ExpireAt: thời điểm kết thúc (null để bỏ giới hạn)
-        ///
-        /// Logic chính:
-        /// - Validate input
-        /// - Find entity (DeletedDate == null)
-        /// - Chặn trùng tên trong cùng parent (case-insensitive) trừ chính nó
-        /// - Validate ExpireAt (ExpireAt phải &gt; Now nếu có)
-        /// - Update entity:
-        ///   + entity.Name
-        ///   + entity.ExpireAt
-        ///   + entity.MarkUpdated() (UpdatedDate = DateTime.Now theo EntityBase)
-        ///
-        /// Trả về:
-        /// - Success: object response (kèm StartAt/ExpireAt/DurationMinutes/RemainingMinutes)
-        /// - Fail: VALIDATION_ERROR / BREAKOUT_ROOM_NOT_FOUND / DUPLICATE_BREAKOUT_ROOM_NAME / INTERNAL_ERROR
+        /// Quyền:
+        /// - User nào cũng update được
+        /// - Nhưng phải là thành viên Room cha của breakout room và không bị ban
         /// </summary>
         public async Task<ApiResult> UpdateBreakoutRoom(UpdateBreakoutRoomModel model)
         {
@@ -263,11 +227,18 @@ namespace server.Service.Services.BreakoutRooms
             await using var tran = await _dataContext.Database.BeginTransactionAsync();
             try
             {
+                var currentUserId = _userService.UserId;
+                if (currentUserId <= 0)
+                    return ApiResult.Fail("Bạn chưa đăng nhập", "UNAUTHORIZED");
+
                 var entity = await _dataContext.BreakoutRooms
                     .FirstOrDefaultAsync(x => x.Id == model.Id && x.DeletedDate == null);
 
                 if (entity == null)
                     return ApiResult.Fail("Không tìm thấy breakout room", "BREAKOUT_ROOM_NOT_FOUND");
+
+                var auth = await EnsureUserInParentRoomAsync(entity.ParentRoomId);
+                if (!auth.IsSuccess) return auth;
 
                 var lowerName = roomName.ToLower();
                 var duplicate = await _dataContext.BreakoutRooms
@@ -288,9 +259,7 @@ namespace server.Service.Services.BreakoutRooms
 
                 entity.Name = roomName;
                 entity.ExpireAt = expireAt;
-
-                // Đồng bộ theo EntityBase (không tự set UpdatedDate bằng Now)
-                entity.MarkUpdated();
+                entity.UpdatedDate = now;
 
                 await SaveChangesAsync();
                 await tran.CommitAsync();
@@ -305,18 +274,11 @@ namespace server.Service.Services.BreakoutRooms
         }
 
         /// <summary>
-        /// Xoá mềm BreakoutRoom theo Id.
+        /// Xoá mềm breakout room theo Id.
         ///
-        /// Cách dùng:
-        /// - Gọi khi người dùng muốn xoá breakout room.
-        ///
-        /// Logic chính:
-        /// - Find entity (DeletedDate == null)
-        /// - entity.MarkDeleted() (DeletedDate/UpdatedDate = DateTime.Now theo EntityBase)
-        ///
-        /// Trả về:
-        /// - Success: null data
-        /// - Fail: VALIDATION_ERROR / BREAKOUT_ROOM_NOT_FOUND / INTERNAL_ERROR
+        /// Quyền:
+        /// - User nào cũng delete được
+        /// - Nhưng phải là thành viên Room cha của breakout room và không bị ban
         /// </summary>
         public async Task<ApiResult> DeleteBreakoutRoom(int breakoutRoomId)
         {
@@ -326,14 +288,20 @@ namespace server.Service.Services.BreakoutRooms
             await using var tran = await _dataContext.Database.BeginTransactionAsync();
             try
             {
+                var currentUserId = _userService.UserId;
+                if (currentUserId <= 0)
+                    return ApiResult.Fail("Bạn chưa đăng nhập", "UNAUTHORIZED");
+
                 var entity = await _dataContext.BreakoutRooms
-                    .FirstOrDefaultAsync(x => x.Id == breakoutRoomId && x.DeletedDate == null);
+                    .FirstOrDefaultAsync(x => x.Id == breakoutRoomId);
 
                 if (entity == null)
                     return ApiResult.Fail("Không tìm thấy breakout room", "BREAKOUT_ROOM_NOT_FOUND");
 
-                // Đồng bộ theo EntityBase (không tự set DeletedDate/UpdatedDate bằng Now)
-                entity.MarkDeleted();
+                var auth = await EnsureUserInParentRoomAsync(entity.ParentRoomId);
+                if (!auth.IsSuccess) return auth;
+
+                _dataContext.BreakoutRooms.Remove(entity);
 
                 await SaveChangesAsync();
                 await tran.CommitAsync();
@@ -347,13 +315,11 @@ namespace server.Service.Services.BreakoutRooms
             }
         }
 
+
         /// <summary>
-        /// Validate ExpireAt theo rule:
-        /// - ExpireAt == null => hợp lệ (không giới hạn)
-        /// - ExpireAt != null => phải lớn hơn startAt
-        ///
-        /// Cách dùng:
-        /// - Dùng trong Add/Update trước khi gán entity.ExpireAt
+        /// Validate ExpireAt:
+        /// - null => hợp lệ (không giới hạn)
+        /// - có giá trị => phải lớn hơn startAt
         /// </summary>
         private static (bool ok, DateTime? expireAt, ApiResult? error) ValidateExpireAt(DateTime startAt, DateTime? expireAt)
         {
@@ -367,32 +333,10 @@ namespace server.Service.Services.BreakoutRooms
         }
 
         /// <summary>
-        /// Tính ExpireAt theo duration phút tính từ startAt.
-        ///
-        /// Cách dùng:
-        /// - Nếu muốn tạo phòng tồn tại 30 phút:
-        ///   var startAt = Now;
-        ///   var expireAt = CalculateExpireAtFromMinutes(startAt, 30);
-        ///   // gán entity.ExpireAt = expireAt;
-        /// </summary>
-        private static DateTime CalculateExpireAtFromMinutes(DateTime startAt, int minutes)
-        {
-            if (minutes <= 0) throw new ArgumentOutOfRangeException(nameof(minutes));
-            return startAt.AddMinutes(minutes);
-        }
-
-        /// <summary>
-        /// Map BreakoutRoom entity sang object response phục vụ FE.
-        ///
-        /// Cách dùng:
-        /// - Dùng trong GetById / GetByParent / Add / Update để trả về dữ liệu đầy đủ:
-        ///   + StartAt: thời điểm bắt đầu (CreatedDate nếu có, fallback = now)
-        ///   + ExpireAt: thời điểm kết thúc (nullable)
-        ///   + DurationMinutes: tổng thời lượng (nullable nếu ExpireAt null)
-        ///   + RemainingMinutes: số phút còn lại (nullable nếu ExpireAt null)
-        ///
-        /// Lưu ý:
-        /// - CreatedDate của EntityBase là DateTime? nên cần fallback tránh TimeSpan?
+        /// Map BreakoutRoom entity sang object response cho FE:
+        /// - StartAt: CreatedDate (fallback now)
+        /// - ExpireAt: nullable
+        /// - DurationMinutes/RemainingMinutes: nullable nếu ExpireAt null
         /// </summary>
         private static object ToRoomResponse(BreakoutRoom room, DateTime now)
         {
@@ -422,6 +366,31 @@ namespace server.Service.Services.BreakoutRooms
                 room.CreatedDate,
                 room.UpdatedDate
             };
+        }
+
+        /// <summary>
+        /// Ensure user hiện tại là thành viên của roomId và không bị ban.
+        /// </summary>
+        private async Task<ApiResult> EnsureUserInParentRoomAsync(int roomId)
+        {
+            var currentUserId = _userService.UserId;
+            if (currentUserId <= 0)
+                return ApiResult.Fail("Bạn chưa đăng nhập", "UNAUTHORIZED");
+
+            var userRoom = await _dataContext.UserRooms
+                .AsNoTracking()
+                .FirstOrDefaultAsync(ur =>
+                    ur.RoomId == roomId &&
+                    ur.UserId == currentUserId &&
+                    ur.DeletedDate == null);
+
+            if (userRoom == null)
+                return ApiResult.Fail("Bạn không phải thành viên của phòng này", "NOT_IN_ROOM");
+
+            if (userRoom.IsBan)
+                return ApiResult.Fail("Bạn đã bị ban khỏi phòng này", "ACCESS_DENIED");
+
+            return ApiResult.Success(null);
         }
     }
 }
