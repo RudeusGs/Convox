@@ -26,11 +26,11 @@ namespace server.Service.Services.Quizzes
 
             var quiz = await _dataContext.Quizzes.FindAsync(model.QuizId);
 
-            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             if (quiz.Status != QuizStatus.Active)
             {
-                return ApiResult.Fail("Câu hỏi này chưa mở hoặc đã kết thúc, không thể nộp bài.");
+                return ApiResult.Fail("Câu hỏi này chưa mở hoặc đã kết thúc, không thể nộp bài.", "QUIZ_NOT_ACTIVE");
             }
             //check quyền user trong phòng
             var userRoom = await _dataContext.UserRooms
@@ -39,7 +39,7 @@ namespace server.Service.Services.Quizzes
                                         && ur.DeletedDate == null);
 
             if (userRoom == null || userRoom.IsBan)
-                return ApiResult.Fail("Bạn không có quyền tham gia trả lời");
+                return ApiResult.Fail("Bạn không có quyền tham gia trả lời", "QUIZ_ACCESS_DENIED");
 
             //check đáp áp, không phân biệt hoa thường và khoảng trắng
             bool isCorrect = model.Answer.Trim().Equals(quiz.CorrectAnswer.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -66,10 +66,10 @@ namespace server.Service.Services.Quizzes
 
             // Check quyền
             var quiz = await _dataContext.Quizzes.FindAsync(new object[] { quizId }, ct);
-            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
-            if (userRoom == null) return ApiResult.Fail("Bạn không có quyền xem");
+            if (userRoom == null) return ApiResult.Fail("Bạn không có quyền xem", "QUIZ_ACCESS_DENIED");
 
             // Lấy dữ liệu thống kê
             var stats = await _dataContext.QuizResponses.AsNoTracking()
@@ -103,12 +103,12 @@ namespace server.Service.Services.Quizzes
             var currentUserId = _userService.UserId;
 
             var quiz = await _dataContext.Quizzes.FindAsync(new object[] { quizId }, ct);
-            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             // Chỉ Leader/Deputy được xem chi tiết
             var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
             if (userRoom == null || userRoom.Role == RoomRole.RegularUser)
-                return ApiResult.Fail("Bạn không có quyền truy cập danh sách nộp bài");
+                return ApiResult.Fail("Bạn không có quyền truy cập danh sách nộp bài", "QUIZ_ACCESS_DENIED");
 
             // lấy thông tin user + câu trả lời
             var submissions = await (from qr in _dataContext.QuizResponses.AsNoTracking()
@@ -136,7 +136,7 @@ namespace server.Service.Services.Quizzes
             // Check quyền
             var userRoom = await GetActiveUserRoomAsync(roomId, currentUserId, ct);
             if (userRoom == null || userRoom.Role == RoomRole.RegularUser)
-                return ApiResult.Fail("Bạn không có quyền truy cập bảng điểm");
+                return ApiResult.Fail("Bạn không có quyền truy cập bảng điểm", "QUIZ_ACCESS_DENIED");
 
             // Đếm tổng số quiz active trong phòng
             var totalQuizzes = await _dataContext.Quizzes
@@ -187,7 +187,7 @@ namespace server.Service.Services.Quizzes
 
             // Check quyền
             var userRoom = await GetActiveUserRoomAsync(roomId, currentUserId, ct);
-            if (userRoom == null) return ApiResult.Fail("Bạn không thuộc phòng này");
+            if (userRoom == null) return ApiResult.Fail("Bạn không thuộc phòng này", "QUIZ_ACCESS_DENIED");
 
             // Lấy tất cả Quiz trong phòng
             var quizzes = await _dataContext.Quizzes.AsNoTracking()

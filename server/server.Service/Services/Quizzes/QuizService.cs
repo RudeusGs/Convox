@@ -28,14 +28,14 @@ namespace server.Service.Services.Quizzes
                                         && ur.DeletedDate == null);
 
             if (userRoom == null)
-                return ApiResult.Fail("Bạn không phải thành viên phòng này");
+                return ApiResult.Fail("Bạn không phải thành viên phòng này", "QUIZ_ACCESS_DENIED");
 
             if (userRoom.IsBan)
-                return ApiResult.Fail("Bạn đã bị cấm khỏi phòng này");
+                return ApiResult.Fail("Bạn đã bị cấm khỏi phòng này", "QUIZ_USER_BANNED");
 
             // chỉ leader và deputy mới được tạo quiz
             if (userRoom.Role == RoomRole.RegularUser)
-                return ApiResult.Fail("Bạn không có quyền tạo quiz trong phòng này");
+                return ApiResult.Fail("Bạn không có quyền tạo quiz trong phòng này", "QUIZ_CREATE_FORBIDDEN");
 
             var optionsJson = JsonSerializer.Serialize(model.Options);
 
@@ -65,16 +65,16 @@ namespace server.Service.Services.Quizzes
                 .FirstOrDefaultAsync(q => q.Id == model.Id && q.DeletedDate == null, ct);
 
             if (quiz == null)
-                return ApiResult.Fail("Quiz không tồn tại");
+                return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             //check quyền user trong phòng
             var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
 
             if (userRoom == null)
-                return ApiResult.Fail("Bạn không có truy cập phòng này");
+                return ApiResult.Fail("Bạn không có truy cập phòng này", "QUIZ_ACCESS_DENIED");
 
             if (userRoom.Role == RoomRole.RegularUser)
-                return ApiResult.Fail("Bạn không có quyền sửa quiz trong phòng này");
+                return ApiResult.Fail("Bạn không có quyền sửa quiz trong phòng này", "QUIZ_UPDATE_FORBIDDEN");
 
             // update data
             quiz.Question = model.Question;
@@ -97,14 +97,14 @@ namespace server.Service.Services.Quizzes
             var quiz = await _dataContext.Quizzes
                 .FirstOrDefaultAsync(q => q.Id == quizId && q.DeletedDate == null, ct);
 
-            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             // Check quyền
             var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
 
             // Chỉ Leader mới được xóa
             if (userRoom == null || userRoom.Role == RoomRole.RegularUser)
-                return ApiResult.Fail("Bạn không có quyền xóa quiz này");
+                return ApiResult.Fail("Bạn không có quyền xóa quiz này", "QUIZ_DELETE_FORBIDDEN");
 
             quiz.MarkDeleted();
 
@@ -122,7 +122,7 @@ namespace server.Service.Services.Quizzes
 
             // Chỉ Leader được clear
             if (userRoom == null || userRoom.Role != RoomRole.GroupLeader)
-                return ApiResult.Fail("Chỉ Trưởng phòng mới có quyền xóa toàn bộ câu hỏi");
+                return ApiResult.Fail("Chỉ Trưởng phòng mới có quyền xóa toàn bộ câu hỏi", "QUIZ_DELETE_FORBIDDEN");
 
             // Lấy tất cả quiz chưa xóa (vì MarkDeleted chỉ ẩn chứ không xóa hẳn khỏi db)
             var quizzes = await _dataContext.Quizzes
@@ -130,7 +130,7 @@ namespace server.Service.Services.Quizzes
                 .ToListAsync(ct);
 
             if (!quizzes.Any())
-                return ApiResult.Fail("Phòng này chưa có câu hỏi nào");
+                return ApiResult.Fail("Phòng này chưa có câu hỏi nào", "QUIZ_NOT_FOUND");
 
             // Đánh dấu xóa tất cả
             foreach (var quiz in quizzes)
@@ -151,7 +151,7 @@ namespace server.Service.Services.Quizzes
             var userRoom = await GetActiveUserRoomAsync(roomId, currentUserId, ct);
 
             if (userRoom == null)
-                return ApiResult.Fail("Bạn không có quyền truy cập phòng này");
+                return ApiResult.Fail("Bạn không có quyền truy cập phòng này", "QUIZ_ACCESS_DENIED");
 
             var query = _dataContext.Quizzes.AsNoTracking()
                 .Where(q => q.RoomId == roomId && q.DeletedDate == null);
@@ -181,7 +181,7 @@ namespace server.Service.Services.Quizzes
                 return model;
             }).ToList();
 
-            return ApiResult.Success(result);
+            return ApiResult.Success(result, "Lấy tất cả Quiz thành công");
         }
 
         public async Task<ApiResult> GetQuizById(int id, CancellationToken ct = default)
@@ -191,19 +191,19 @@ namespace server.Service.Services.Quizzes
             var quiz = await _dataContext.Quizzes.AsNoTracking()
                 .FirstOrDefaultAsync(q => q.Id == id && q.DeletedDate == null, ct);
 
-            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             // Check quyền trong phòng chứa quiz này
             var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
 
-            if (userRoom == null) return ApiResult.Fail("Bạn không có quyền truy cập quiz này");
+            if (userRoom == null) return ApiResult.Fail("Bạn không có quyền truy cập quiz này", "QUIZ_ACCESS_DENIED");
 
             // Map sang DTO
             var dto = QuizHelper.MapQuizToModel(quiz);
             // học viên thì ẩn đáp án
             QuizHelper.ApplyCorrectAnswer(dto, quiz, userRoom.Role);
 
-            return ApiResult.Success(dto);
+            return ApiResult.Success(dto, "Lấy Quiz thành công");
         }
 
         public async Task<ApiResult> UpdateStatus(UpdateQuizStatusModel model, CancellationToken ct = default)
@@ -213,12 +213,12 @@ namespace server.Service.Services.Quizzes
             var quiz = await _dataContext.Quizzes
                 .FirstOrDefaultAsync(q => q.Id == model.QuizId && q.DeletedDate == null, ct);
 
-            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại");
+            if (quiz == null) return ApiResult.Fail("Quiz không tồn tại", "QUIZ_NOT_FOUND");
 
             // Check quyền: Chỉ Leader mới được đóng/mở quiz
             var userRoom = await GetActiveUserRoomAsync(quiz.RoomId, currentUserId, ct);
             if (userRoom == null || userRoom.Role != RoomRole.GroupLeader)
-                return ApiResult.Fail("Bạn không có quyền thay đổi trạng thái Quiz này");
+                return ApiResult.Fail("Bạn không có quyền thay đổi trạng thái Quiz này", "QUIZ_UPDATE_FORBIDDEN");
 
             // update status
             quiz.Status = model.NewStatus;
@@ -244,7 +244,7 @@ namespace server.Service.Services.Quizzes
 
             var userRoom = await GetActiveUserRoomAsync(model.RoomId, currentUserId, ct);
             if (userRoom == null || userRoom.Role != RoomRole.GroupLeader)
-                return ApiResult.Fail("Bạn không có quyền thay đổi trạng thái Quiz này");
+                return ApiResult.Fail("Bạn không có quyền thay đổi trạng thái Quiz này", "QUIZ_UPDATE_FORBIDDEN");
 
             // Lấy danh sách Quiz cần sửa
             var quizzes = await _dataContext.Quizzes
@@ -253,7 +253,7 @@ namespace server.Service.Services.Quizzes
                          && q.DeletedDate == null)
                 .ToListAsync(ct);
 
-            if (!quizzes.Any()) return ApiResult.Fail("Không tìm thấy câu hỏi nào hợp lệ");
+            if (!quizzes.Any()) return ApiResult.Fail("Không tìm thấy câu hỏi nào hợp lệ", "QUIZ_NOT_FOUND");
 
             // Update Status hàng loạt
             foreach (var quiz in quizzes)
