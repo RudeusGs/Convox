@@ -37,6 +37,13 @@ namespace server.Service.Services.Quizzes
             if (userRoom.Role == RoomRole.RegularUser)
                 return ApiResult.Fail("Bạn không có quyền tạo quiz trong phòng này", "QUIZ_CREATE_FORBIDDEN");
 
+            // validate đáp án
+            var validation = QuizHelper.ValidateQuizData(model.Options, model.CorrectAnswer);
+            if (!validation.IsValid)
+            {
+                return ApiResult.Fail(validation.ErrorMessage);
+            }
+
             var optionsJson = JsonSerializer.Serialize(model.Options);
 
             var quiz = new Quiz
@@ -75,6 +82,13 @@ namespace server.Service.Services.Quizzes
 
             if (userRoom.Role == RoomRole.RegularUser)
                 return ApiResult.Fail("Bạn không có quyền sửa quiz trong phòng này", "QUIZ_UPDATE_FORBIDDEN");
+
+            // validate đáp án
+            var validation = QuizHelper.ValidateQuizData(model.Options, model.CorrectAnswer);
+            if (!validation.IsValid)
+            {
+                return ApiResult.Fail(validation.ErrorMessage);
+            }
 
             // update data
             quiz.Question = model.Question;
