@@ -48,6 +48,7 @@ namespace server.Service.Configurations
             services.AddScoped<IP2PChatService, P2PChatService>();
             services.AddScoped<IChatUploadService, ChatUploadService>();
             services.AddScoped<IBreakoutRoomService, BreakoutRoomService>();
+            services.AddScoped<IQuizResponseService, QuizResponseService>();
             #endregion
 
             return services;
