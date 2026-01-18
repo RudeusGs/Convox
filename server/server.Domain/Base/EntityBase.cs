@@ -9,12 +9,12 @@
         public bool IsDeleted => DeletedDate.HasValue;
         public void MarkUpdated()
         {
-            UpdatedDate = DateTime.UtcNow;
+            UpdatedDate = DateTime.Now;
         }
 
         public void MarkDeleted()
         {
-            DeletedDate = DateTime.UtcNow;
+            DeletedDate = DateTime.Now;
             MarkUpdated();
         }
     }
