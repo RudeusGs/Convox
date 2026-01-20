@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using server.Hubs;
+using server.Infrastructure.Persistence;
 using server.Models.Chats;
 using server.Service.Interfaces;
 using server.Service.Models.Chats;
@@ -15,13 +17,16 @@ namespace server.Controllers.Chats
     {
         private readonly IBreakroomChatService _breakroomChatService;
         private readonly IHubContext<ChatHub> _hub;
+        private readonly DataContext _dataContext;
 
         public BreakroomChatController(
             IBreakroomChatService breakroomChatService,
-            IHubContext<ChatHub> hub)
+            IHubContext<ChatHub> hub,
+            DataContext dataContext)
         {
             _breakroomChatService = breakroomChatService;
             _hub = hub;
+            _dataContext = dataContext;
         }
 
         [HttpGet("breakrooms/{breakroomId:int}/history")]
@@ -56,6 +61,70 @@ namespace server.Controllers.Chats
 
             await _hub.Clients.Group($"breakroom_{breakroomId}")
                 .SendAsync("ReceiveMessage", result.Data);
+
+            return FromApiResult(result);
+        }
+
+        [HttpPut("breakrooms/{breakroomId:int}/messages/{messageId:int}")]
+        public async Task<IActionResult> EditMessageInBreakroom(
+            [FromRoute] int breakroomId,
+            [FromRoute] int messageId,
+            [FromBody] UpdateBreakroomMessageRequest request)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+                return FailResult("Unauthorized", 401, "UNAUTHORIZED");
+
+            var messageBreakroomId = await _dataContext.ChatMessageBreakoutRooms
+                .Where(x => x.Id == messageId && x.DeletedDate == null)
+                .Select(x => x.BreakoutRoomId)
+                .FirstOrDefaultAsync();
+
+            if (messageBreakroomId == 0)
+                return FailResult("Tin nhắn không tồn tại", 404, "MESSAGE_NOT_FOUND");
+
+            if (messageBreakroomId != breakroomId)
+                return FailResult("Tin nhắn không thuộc phòng con này", 400, "INVALID_BREAKROOM");
+
+            var result = await _breakroomChatService.EditMessageInBreakroom(
+                messageId,
+                userId.Value,
+                request.MessageContent ?? string.Empty,
+                request.ImageUrls);
+
+            if (!result.IsSuccess) return FromApiResult(result);
+
+            await _hub.Clients.Group($"breakroom_{breakroomId}")
+                .SendAsync("MessageEdited", result.Data);
+
+            return FromApiResult(result);
+        }
+
+        [HttpDelete("breakrooms/{breakroomId:int}/messages/{messageId:int}")]
+        public async Task<IActionResult> DeleteMessageInBreakroom(
+            [FromRoute] int breakroomId,
+            [FromRoute] int messageId)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+                return FailResult("Unauthorized", 401, "UNAUTHORIZED");
+
+            var messageBreakroomId = await _dataContext.ChatMessageBreakoutRooms
+                .Where(x => x.Id == messageId && x.DeletedDate == null)
+                .Select(x => x.BreakoutRoomId)
+                .FirstOrDefaultAsync();
+
+            if (messageBreakroomId == 0)
+                return FailResult("Tin nhắn không tồn tại", 404, "MESSAGE_NOT_FOUND");
+
+            if (messageBreakroomId != breakroomId)
+                return FailResult("Tin nhắn không thuộc phòng con này", 400, "INVALID_BREAKROOM");
+
+            var result = await _breakroomChatService.DeleteMessageInBreakroom(messageId, userId.Value);
+            if (!result.IsSuccess) return FromApiResult(result);
+
+            await _hub.Clients.Group($"breakroom_{breakroomId}")
+                .SendAsync("MessageDeleted", new { MessageId = messageId });
 
             return FromApiResult(result);
         }
