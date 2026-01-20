@@ -55,5 +55,39 @@ namespace server.Hubs
             else
                 await Clients.Caller.SendAsync("Error", result.Message);
         }
+
+        public async Task EditMessageInBreakroom(int messageId, int breakroomId, string newMessage, List<string>? imageUrls = null)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+            {
+                await Clients.Caller.SendAsync("Error", "Unauthorized");
+                return;
+            }
+
+            var result = await _breakroomChatService.EditMessageInBreakroom(messageId, userId.Value, newMessage, imageUrls);
+
+            if (result.IsSuccess)
+                await Clients.Group($"breakroom_{breakroomId}").SendAsync("MessageEdited", result.Data);
+            else
+                await Clients.Caller.SendAsync("Error", result.Message);
+        }
+
+        public async Task DeleteMessageInBreakroom(int messageId, int breakroomId)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+            {
+                await Clients.Caller.SendAsync("Error", "Unauthorized");
+                return;
+            }
+
+            var result = await _breakroomChatService.DeleteMessageInBreakroom(messageId, userId.Value);
+
+            if (result.IsSuccess)
+                await Clients.Group($"breakroom_{breakroomId}").SendAsync("MessageDeleted", new { MessageId = messageId });
+            else
+                await Clients.Caller.SendAsync("Error", result.Message);
+        }
     }
 }

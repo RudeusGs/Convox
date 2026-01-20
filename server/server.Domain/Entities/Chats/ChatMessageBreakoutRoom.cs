@@ -9,5 +9,6 @@ namespace server.Domain.Entities.Chats
         public string Message { get; set; } // Nội dung
         public string MessageType { get; set; } // text, emoji, system...
         public string? ImageUrl { get; set; }
+        public bool IsEdited => UpdatedDate.HasValue && UpdatedDate > CreatedDate;
     }
 }

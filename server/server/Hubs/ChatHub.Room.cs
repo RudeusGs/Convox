@@ -55,5 +55,39 @@ namespace server.Hubs
             else
                 await Clients.Caller.SendAsync("Error", result.Message);
         }
+
+        public async Task EditMessageInRoom(int messageId, int roomId, string newMessage, List<string>? imageUrls = null)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+            {
+                await Clients.Caller.SendAsync("Error", "Unauthorized");
+                return;
+            }
+
+            var result = await _roomChatService.EditMessageInRoom(messageId, userId.Value, newMessage, imageUrls);
+
+            if (result.IsSuccess)
+                await Clients.Group($"room_{roomId}").SendAsync("MessageEdited", result.Data);
+            else
+                await Clients.Caller.SendAsync("Error", result.Message);
+        }
+
+        public async Task DeleteMessageInRoom(int messageId, int roomId)
+        {
+            var userId = GetUserId();
+            if (!userId.HasValue)
+            {
+                await Clients.Caller.SendAsync("Error", "Unauthorized");
+                return;
+            }
+
+            var result = await _roomChatService.DeleteMessageInRoom(messageId, userId.Value);
+
+            if (result.IsSuccess)
+                await Clients.Group($"room_{roomId}").SendAsync("MessageDeleted", new { MessageId = messageId });
+            else
+                await Clients.Caller.SendAsync("Error", result.Message);
+        }
     }
 }

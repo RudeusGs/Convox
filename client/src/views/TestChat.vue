@@ -154,21 +154,61 @@
                     >User {{ message.userId || message.senderId }}</strong
                   ></span
                 >
-                <span>{{ formatTime(message.createdDate) }}</span>
+                <span>
+                  {{ formatTime(message.createdDate) }}
+                  <span v-if="message.isEdited" class="edited-badge"
+                    >(edited)</span
+                  >
+                </span>
               </div>
-              <div class="message-content">{{ message.message }}</div>
+
+              <!-- Edit mode -->
               <div
-                v-if="message.imageUrls && message.imageUrls.length > 0"
-                class="message-images"
+                v-if="editingMessageId === (message.id || message.messageId)"
+                class="edit-message-section"
               >
-                <img
-                  v-for="(url, idx) in message.imageUrls"
-                  :key="idx"
-                  :src="url"
-                  alt="Image"
-                  @click="openImage(url)"
-                />
+                <textarea
+                  v-model="editMessageText"
+                  class="edit-message-input"
+                  rows="3"
+                  @keypress.ctrl.enter="saveEditMessage"
+                ></textarea>
+                <div class="message-actions">
+                  <button class="btn-save" @click="saveEditMessage">
+                    💾 Save
+                  </button>
+                  <button class="btn-cancel" @click="cancelEditMessage">
+                    ❌ Cancel
+                  </button>
+                </div>
               </div>
+
+              <!-- Normal mode -->
+              <template v-else>
+                <div class="message-content">{{ message.message }}</div>
+                <div
+                  v-if="message.imageUrls && message.imageUrls.length > 0"
+                  class="message-images"
+                >
+                  <img
+                    v-for="(url, idx) in message.imageUrls"
+                    :key="idx"
+                    :src="url"
+                    alt="Image"
+                    @click="openImage(url)"
+                  />
+                </div>
+
+                <!-- Edit and Delete buttons for own messages -->
+                <div v-if="isOwnMessage(message)" class="message-actions">
+                  <button class="btn-edit" @click="startEditMessage(message)">
+                    ✏️ Edit
+                  </button>
+                  <button class="btn-delete" @click="deleteMessage(message)">
+                    🗑️ Delete
+                  </button>
+                </div>
+              </template>
             </template>
             <template v-else>
               {{ message.text }}
@@ -257,6 +297,10 @@ export default {
     const selectedFiles = ref([]);
     const typingMessage = ref("");
     let typingTimeout = null;
+
+    // Edit message
+    const editingMessageId = ref(null);
+    const editMessageText = ref("");
 
     // Pagination
     const paginationInfo = ref({
@@ -348,7 +392,7 @@ export default {
         addLog("Connecting to SignalR...");
         const connected = await chatSignalRService.startConnection(
           token.value,
-          apiUrl.value
+          apiUrl.value,
         );
         isConnected.value = connected;
 
@@ -402,6 +446,80 @@ export default {
         addLog("❌ Error: " + error);
         alert("Error: " + error);
       });
+
+      chatSignalRService.onMessageEdited((data) => {
+        console.log("📝 MessageEdited event received:", data);
+        const messageId = data.Id || data.id;
+        addLog(`✏️ Message ${messageId} edited`);
+
+        // Find message index - handle both PascalCase (C#) and camelCase
+        const messageIndex = messages.value.findIndex((m) => {
+          const mId = m.id || m.messageId || m.Id;
+          return mId === messageId;
+        });
+
+        if (messageIndex !== -1) {
+          const oldMessage = messages.value[messageIndex];
+
+          // Create updated message with normalized properties (both PascalCase and camelCase)
+          const updatedMessage = {
+            ...oldMessage,
+            // Message content - both cases
+            message: data.Message || data.message,
+            Message: data.Message || data.message,
+            // Edit flag - both cases
+            isEdited: data.IsEdited !== undefined ? data.IsEdited : true,
+            IsEdited: data.IsEdited !== undefined ? data.IsEdited : true,
+            // Update date - both cases
+            updatedDate:
+              data.UpdatedDate || data.updatedDate || new Date().toISOString(),
+            UpdatedDate:
+              data.UpdatedDate || data.updatedDate || new Date().toISOString(),
+            // Image URLs if provided - both cases
+            imageUrls: data.ImageUrls || data.imageUrls || oldMessage.imageUrls,
+            ImageUrls: data.ImageUrls || data.imageUrls || oldMessage.imageUrls,
+          };
+
+          // Use splice to trigger Vue reactivity
+          messages.value.splice(messageIndex, 1, updatedMessage);
+          console.log("✅ Message updated in UI:", updatedMessage);
+        } else {
+          console.warn("⚠️ Message not found in list, messageId:", messageId);
+          console.log(
+            "Available message IDs:",
+            messages.value.map((m) => m.id || m.messageId || m.Id),
+          );
+        }
+      });
+
+      chatSignalRService.onMessageDeleted((data) => {
+        console.log("🗑️ MessageDeleted event received:", data);
+        const messageId = data.MessageId || data.messageId;
+        addLog(`🗑️ Message ${messageId} deleted`);
+
+        // Remove message from list - handle both PascalCase and camelCase
+        const beforeCount = messages.value.length;
+        messages.value = messages.value.filter((m) => {
+          const mId = m.id || m.messageId || m.Id;
+          return mId !== messageId;
+        });
+        const afterCount = messages.value.length;
+
+        if (beforeCount > afterCount) {
+          console.log(
+            `✅ Message deleted from UI. Messages count: ${beforeCount} -> ${afterCount}`,
+          );
+        } else {
+          console.warn(
+            "⚠️ Message not found for deletion, messageId:",
+            messageId,
+          );
+          console.log(
+            "Available message IDs:",
+            messages.value.map((m) => m.id || m.messageId || m.Id),
+          );
+        }
+      });
     };
 
     // Room management
@@ -454,7 +572,7 @@ export default {
       try {
         const response = await axios.get(
           `${apiUrl.value}/api/Chat/room/${roomId.value}/history?page=1&pageSize=50`,
-          { headers: { Authorization: `Bearer ${token.value}` } }
+          { headers: { Authorization: `Bearer ${token.value}` } },
         );
         if (response.data.isSuccess) {
           messages.value = [];
@@ -469,7 +587,7 @@ export default {
       try {
         const response = await axios.get(
           `${apiUrl.value}/api/Chat/breakroom/${breakroomId.value}/history?page=1&pageSize=50`,
-          { headers: { Authorization: `Bearer ${token.value}` } }
+          { headers: { Authorization: `Bearer ${token.value}` } },
         );
         if (response.data.isSuccess) {
           messages.value = [];
@@ -485,7 +603,7 @@ export default {
         addLog(`📥 Loading P2P history with user ${receiverId.value}...`);
         const response = await axios.get(
           `${apiUrl.value}/api/Chat/p2p/${receiverId.value}/history?page=${page}&pageSize=${pageSize}`,
-          { headers: { Authorization: `Bearer ${token.value}` } }
+          { headers: { Authorization: `Bearer ${token.value}` } },
         );
 
         if (response.data.isSuccess) {
@@ -501,7 +619,7 @@ export default {
           };
 
           addLog(
-            `✅ Loaded ${data.messages.length} messages (Page ${data.currentPage}/${data.totalPages}, Total: ${data.totalMessages})`
+            `✅ Loaded ${data.messages.length} messages (Page ${data.currentPage}/${data.totalPages}, Total: ${data.totalMessages})`,
           );
 
           data.messages.forEach((msg) => addMessageToChat(msg));
@@ -509,7 +627,7 @@ export default {
           // Log pagination info
           if (data.totalPages > 1) {
             addSystemMessage(
-              `📄 Page ${data.currentPage} of ${data.totalPages} | Total messages: ${data.totalMessages}`
+              `📄 Page ${data.currentPage} of ${data.totalPages} | Total messages: ${data.totalMessages}`,
             );
           }
         }
@@ -524,7 +642,7 @@ export default {
         if (chatMode.value === "p2p") {
           loadP2PHistory(
             paginationInfo.value.currentPage - 1,
-            paginationInfo.value.pageSize
+            paginationInfo.value.pageSize,
           );
         }
       }
@@ -535,7 +653,7 @@ export default {
         if (chatMode.value === "p2p") {
           loadP2PHistory(
             paginationInfo.value.currentPage + 1,
-            paginationInfo.value.pageSize
+            paginationInfo.value.pageSize,
           );
         }
       }
@@ -564,7 +682,7 @@ export default {
           await chatSignalRService.sendMessageToRoom(
             roomId.value,
             newMessage.value,
-            imageUrls
+            imageUrls,
           );
         } else if (chatMode.value === "breakroom") {
           if (!inBreakroom.value) {
@@ -574,13 +692,13 @@ export default {
           await chatSignalRService.sendMessageToBreakroom(
             breakroomId.value,
             newMessage.value,
-            imageUrls
+            imageUrls,
           );
         } else if (chatMode.value === "p2p") {
           await chatSignalRService.sendMessageP2P(
             receiverId.value,
             newMessage.value,
-            imageUrls
+            imageUrls,
           );
         }
 
@@ -604,7 +722,7 @@ export default {
         const response = await axios.post(
           `${apiUrl.value}/api/Chat/upload-images`,
           formData,
-          { headers: { Authorization: `Bearer ${token.value}` } }
+          { headers: { Authorization: `Bearer ${token.value}` } },
         );
 
         if (response.data.isSuccess) {
@@ -634,6 +752,155 @@ export default {
 
     const removeFile = (index) => {
       selectedFiles.value.splice(index, 1);
+    };
+
+    // Edit and Delete message
+    const startEditMessage = (message) => {
+      console.log("📝 Starting edit message:", message);
+      const messageId = message.id || message.messageId;
+      console.log("Message ID:", messageId);
+      console.log("Message content:", message.message);
+      console.log("Current chat mode:", chatMode.value);
+
+      editingMessageId.value = messageId;
+      editMessageText.value = message.message;
+
+      console.log("Edit state set - editingMessageId:", editingMessageId.value);
+      console.log("Edit state set - editMessageText:", editMessageText.value);
+    };
+
+    const cancelEditMessage = () => {
+      editingMessageId.value = null;
+      editMessageText.value = "";
+    };
+
+    const saveEditMessage = async () => {
+      console.log("💾 saveEditMessage called");
+      console.log("editMessageText:", editMessageText.value);
+      console.log("editingMessageId:", editingMessageId.value);
+      console.log("chatMode:", chatMode.value);
+
+      if (!editMessageText.value.trim() || !editingMessageId.value) {
+        console.warn("⚠️ Validation failed - empty text or no message ID");
+        return;
+      }
+
+      const messageId = editingMessageId.value;
+      console.log("🔑 Editing message ID:", messageId);
+
+      try {
+        if (chatMode.value === "room") {
+          console.log("🟢 Calling editMessageInRoom...");
+          console.log("Parameters:", {
+            messageId,
+            roomId: roomId.value,
+            newMessage: editMessageText.value,
+          });
+
+          await chatSignalRService.editMessageInRoom(
+            messageId,
+            roomId.value,
+            editMessageText.value,
+          );
+
+          console.log("✅ editMessageInRoom completed");
+        } else if (chatMode.value === "breakroom") {
+          console.log("🔵 Calling editMessageInBreakroom...");
+          console.log("Parameters:", {
+            messageId,
+            breakroomId: breakroomId.value,
+            newMessage: editMessageText.value,
+          });
+
+          await chatSignalRService.editMessageInBreakroom(
+            messageId,
+            breakroomId.value,
+            editMessageText.value,
+          );
+
+          console.log("✅ editMessageInBreakroom completed");
+        } else if (chatMode.value === "p2p") {
+          console.log("🔴 Calling editMessageP2P...");
+          console.log("Parameters:", {
+            messageId,
+            newMessage: editMessageText.value,
+          });
+          console.log("chatSignalRService:", chatSignalRService);
+          console.log(
+            "editMessageP2P function:",
+            chatSignalRService.editMessageP2P,
+          );
+
+          // Try without imageUrls parameter (let backend use default)
+          console.log("🔧 Attempting editMessageP2P with 2 params only...");
+          const result = await chatSignalRService.editMessageP2P(
+            messageId,
+            editMessageText.value,
+          );
+
+          console.log("✅ editMessageP2P completed, result:", result);
+        }
+
+        editingMessageId.value = null;
+        editMessageText.value = "";
+        addLog("✅ Message edited");
+        console.log("✅ Edit completed successfully");
+      } catch (error) {
+        console.error("❌ Edit message error:", error);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        console.error("Error details:", JSON.stringify(error, null, 2));
+
+        addLog(`❌ Edit message failed: ${error.message}`);
+        alert("Edit message failed: " + error.message);
+      }
+    };
+
+    const deleteMessage = async (message) => {
+      console.log("🗑️ deleteMessage called:", message);
+
+      if (!confirm("Are you sure you want to delete this message?")) {
+        console.log("❌ Delete cancelled by user");
+        return;
+      }
+
+      const messageId = message.id || message.messageId;
+      console.log("🔑 Deleting message ID:", messageId);
+      console.log("chatMode:", chatMode.value);
+
+      try {
+        if (chatMode.value === "room") {
+          console.log("🟢 Calling deleteMessageInRoom...");
+          await chatSignalRService.deleteMessageInRoom(messageId, roomId.value);
+        } else if (chatMode.value === "breakroom") {
+          console.log("🔵 Calling deleteMessageInBreakroom...");
+          await chatSignalRService.deleteMessageInBreakroom(
+            messageId,
+            breakroomId.value,
+          );
+        } else if (chatMode.value === "p2p") {
+          console.log("🔴 Calling deleteMessageP2P...");
+          console.log("Parameters:", {
+            messageId,
+            receiverId: receiverId.value,
+          });
+          await chatSignalRService.deleteMessageP2P(
+            messageId,
+            receiverId.value,
+          );
+        }
+
+        console.log("✅ Delete completed successfully");
+        addLog("✅ Message deleted");
+      } catch (error) {
+        console.error("❌ Delete message error:", error);
+        console.error("Error message:", error.message);
+        console.error("Error stack:", error.stack);
+        console.error("Error details:", JSON.stringify(error, null, 2));
+
+        addLog(`❌ Delete message failed: ${error.message}`);
+        alert("Delete message failed: " + error.message);
+      }
     };
 
     // Typing indicator
@@ -703,7 +970,7 @@ export default {
             loadP2PHistory();
           }
         }
-      }
+      },
     );
 
     return {
@@ -757,6 +1024,14 @@ export default {
       isOwnMessage,
       formatTime,
       openImage,
+
+      // Edit message
+      editingMessageId,
+      editMessageText,
+      startEditMessage,
+      cancelEditMessage,
+      saveEditMessage,
+      deleteMessage,
     };
   },
 };
@@ -1108,5 +1383,82 @@ export default {
 .btn-send:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+/* Edit Message Styling */
+.edited-badge {
+  color: #ff9800;
+  font-style: italic;
+  font-size: 10px;
+  margin-left: 5px;
+}
+
+.edit-message-section {
+  margin-top: 8px;
+}
+
+.edit-message-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 8px;
+}
+
+.message-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-edit,
+.btn-delete,
+.btn-save,
+.btn-cancel {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+}
+
+.btn-edit {
+  background: #2196f3;
+  color: white;
+}
+
+.btn-edit:hover {
+  background: #1976d2;
+}
+
+.btn-delete {
+  background: #f44336;
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #d32f2f;
+}
+
+.btn-save {
+  background: #4caf50;
+  color: white;
+}
+
+.btn-save:hover {
+  background: #388e3c;
+}
+
+.btn-cancel {
+  background: #9e9e9e;
+  color: white;
+}
+
+.btn-cancel:hover {
+  background: #757575;
 }
 </style>

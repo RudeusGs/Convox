@@ -20,6 +20,22 @@ class ChatSignalRService {
         .configureLogging(signalR.LogLevel.Information)
         .build();
 
+      // Connection lifecycle events
+      this.connection.onreconnecting((error) => {
+        console.warn("🔄 Reconnecting...", error);
+        this.isConnected = false;
+      });
+
+      this.connection.onreconnected((connectionId) => {
+        console.log("✅ Reconnected:", connectionId);
+        this.isConnected = true;
+      });
+
+      this.connection.onclose((error) => {
+        console.error("❌ Connection Closed:", error);
+        this.isConnected = false;
+      });
+
       await this.connection.start();
       this.isConnected = true;
       console.log("✅ SignalR Connected");
@@ -40,63 +56,112 @@ class ChatSignalRService {
   }
 
   // ==================== ROOM CHAT ====================
-  async joinRoom(roomId, password = null) {
+  async joinRoom(roomId) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke("JoinRoom", roomId);
   }
 
   async leaveRoom(roomId) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke("LeaveRoom", roomId);
   }
 
   async sendMessageToRoom(roomId, message, imageUrls = null) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke(
       "SendMessageToRoom",
       roomId,
       message,
-      imageUrls
+      imageUrls,
     );
+  }
+
+  async editMessageInRoom(messageId, roomId, newMessage, imageUrls = null) {
+    if (!this.connection) throw new Error("Not connected");
+    return this.connection.invoke(
+      "EditMessageInRoom",
+      messageId,
+      roomId,
+      newMessage,
+      imageUrls,
+    );
+  }
+
+  async deleteMessageInRoom(messageId, roomId) {
+    if (!this.connection) throw new Error("Not connected");
+    return this.connection.invoke("DeleteMessageInRoom", messageId, roomId);
   }
 
   // ==================== BREAKROOM CHAT ====================
   async joinBreakroom(breakroomId) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke("JoinBreakroom", breakroomId);
   }
 
   async leaveBreakroom(breakroomId) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke("LeaveBreakroom", breakroomId);
   }
 
   async sendMessageToBreakroom(breakroomId, message, imageUrls = null) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke(
       "SendMessageToBreakroom",
       breakroomId,
       message,
-      imageUrls
+      imageUrls,
+    );
+  }
+
+  async editMessageInBreakroom(
+    messageId,
+    breakroomId,
+    newMessage,
+    imageUrls = null,
+  ) {
+    if (!this.connection) throw new Error("Not connected");
+    return this.connection.invoke(
+      "EditMessageInBreakroom",
+      messageId,
+      breakroomId,
+      newMessage,
+      imageUrls,
+    );
+  }
+
+  async deleteMessageInBreakroom(messageId, breakroomId) {
+    if (!this.connection) throw new Error("Not connected");
+    return this.connection.invoke(
+      "DeleteMessageInBreakroom",
+      messageId,
+      breakroomId,
     );
   }
 
   // ==================== P2P CHAT ====================
   async sendMessageP2P(receiverId, message, imageUrls = null) {
     if (!this.connection) throw new Error("Not connected");
-
     return this.connection.invoke(
       "SendMessageP2P",
       receiverId,
       message,
-      imageUrls
+      imageUrls,
     );
+  }
+
+  async editMessageP2P(messageId, newMessage, imageUrls = null) {
+    if (!this.connection) throw new Error("Not connected");
+    return this.connection.invoke(
+      "EditMessageP2P",
+      messageId,
+      newMessage,
+      imageUrls,
+    );
+  }
+
+  async deleteMessageP2P(messageId, receiverId) {
+    if (!this.connection) throw new Error("Not connected");
+    return this.connection.invoke("DeleteMessageP2P", messageId, receiverId);
   }
 
   // ==================== TYPING INDICATORS ====================
@@ -133,6 +198,20 @@ class ChatSignalRService {
     }
   }
 
+  onMessageEdited(callback) {
+    if (this.connection) {
+      // Backend returns: { Id, Message, UpdatedDate, IsEdited, ... }
+      this.connection.on("MessageEdited", callback);
+    }
+  }
+
+  onMessageDeleted(callback) {
+    if (this.connection) {
+      // Backend returns: { MessageId }
+      this.connection.on("MessageDeleted", callback);
+    }
+  }
+
   onUserJoined(callback) {
     if (this.connection) {
       this.connection.on("UserJoined", callback);
@@ -161,6 +240,25 @@ class ChatSignalRService {
     if (this.connection) {
       this.connection.on("Error", callback);
     }
+  }
+
+  // ==================== CLEANUP ====================
+  offAllListeners() {
+    if (this.connection) {
+      this.connection.off("ReceiveMessage");
+      this.connection.off("ReceiveP2PMessage");
+      this.connection.off("MessageEdited");
+      this.connection.off("MessageDeleted");
+      this.connection.off("UserJoined");
+      this.connection.off("UserLeft");
+      this.connection.off("UserTyping");
+      this.connection.off("UserTypingP2P");
+      this.connection.off("Error");
+    }
+  }
+
+  getConnectionState() {
+    return this.connection?.state ?? "Disconnected";
   }
 }
 

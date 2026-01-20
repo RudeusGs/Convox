@@ -38,7 +38,9 @@ namespace server.Service.Services.Chats
                     m.Message,
                     m.MessageType,
                     ImageUrls = ChatMessageHelper.ParseImageUrls(m.ImageUrl),
-                    m.CreatedDate
+                    m.CreatedDate,
+                    m.UpdatedDate,
+                    IsEdited = m.IsEdited
                 })
                 .ToListAsync();
 
@@ -88,6 +90,59 @@ namespace server.Service.Services.Chats
                 ImageUrls = model.ImageUrls ?? new List<string>(),
                 chatMessage.CreatedDate
             }, "Gửi tin nhắn thành công");
+        }
+
+        public async Task<ApiResult> EditMessageInBreakroom(int messageId, int userId, string newMessage, List<string>? imageUrls = null)
+        {
+            var chatMessage = await _dataContext.ChatMessageBreakoutRooms
+                .FirstOrDefaultAsync(m => m.Id == messageId && m.DeletedDate == null);
+
+            if (chatMessage == null)
+                return ApiResult.Fail("Tin nhắn không tồn tại", "MESSAGE_NOT_FOUND");
+
+            if (chatMessage.UserId != userId)
+                return ApiResult.Fail("Bạn không có quyền sửa tin nhắn này", "UNAUTHORIZED");
+
+            chatMessage.Message = newMessage;
+            chatMessage.MarkUpdated();
+            
+            if (imageUrls != null)
+            {
+                chatMessage.ImageUrl = ChatMessageHelper.JoinImageUrls(imageUrls);
+                chatMessage.MessageType = ChatMessageHelper.DetermineMessageType(newMessage, imageUrls);
+            }
+
+            await SaveChangesAsync();
+
+            return ApiResult.Success(new
+            {
+                chatMessage.Id,
+                chatMessage.BreakoutRoomId,
+                chatMessage.UserId,
+                chatMessage.Message,
+                chatMessage.MessageType,
+                ImageUrls = ChatMessageHelper.ParseImageUrls(chatMessage.ImageUrl),
+                chatMessage.CreatedDate,
+                chatMessage.UpdatedDate,
+                IsEdited = chatMessage.IsEdited
+            }, "Chỉnh sửa tin nhắn thành công");
+        }
+
+        public async Task<ApiResult> DeleteMessageInBreakroom(int messageId, int userId)
+        {
+            var chatMessage = await _dataContext.ChatMessageBreakoutRooms
+                .FirstOrDefaultAsync(m => m.Id == messageId && m.DeletedDate == null);
+
+            if (chatMessage == null)
+                return ApiResult.Fail("Tin nhắn không tồn tại", "MESSAGE_NOT_FOUND");
+
+            if (chatMessage.UserId != userId)
+                return ApiResult.Fail("Bạn không có quyền xóa tin nhắn này", "UNAUTHORIZED");
+
+            chatMessage.DeletedDate = Now;
+            await SaveChangesAsync();
+
+            return ApiResult.Success(new { MessageId = messageId, BreakroomId = chatMessage.BreakoutRoomId }, "Xóa tin nhắn thành công");
         }
     }
 }
