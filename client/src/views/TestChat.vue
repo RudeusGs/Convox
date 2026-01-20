@@ -139,6 +139,16 @@
         </div>
 
         <div class="messages" ref="messagesContainer">
+          <!-- Hidden file input for editing messages (outside v-for to avoid ref array issue) -->
+          <input
+            type="file"
+            ref="editFileInput"
+            accept="image/*"
+            multiple
+            style="display: none"
+            @change="handleEditFileSelect"
+          />
+
           <div
             v-for="(message, index) in messages"
             :key="index"
@@ -173,7 +183,27 @@
                   rows="3"
                   @keypress.ctrl.enter="saveEditMessage"
                 ></textarea>
+
+                <div v-if="editingImages.length > 0" class="image-preview">
+                  <div
+                    v-for="(img, index) in editingImages"
+                    :key="index"
+                    class="preview-item"
+                  >
+                    <img :src="img.url" alt="Preview" />
+                    <button class="remove-btn" @click="removeEditFile(index)">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+
                 <div class="message-actions">
+                  <button
+                    class="btn-upload"
+                    @click="$refs.editFileInput.click()"
+                  >
+                    📎 Add Images
+                  </button>
                   <button class="btn-save" @click="saveEditMessage">
                     💾 Save
                   </button>
@@ -301,6 +331,7 @@ export default {
     // Edit message
     const editingMessageId = ref(null);
     const editMessageText = ref("");
+    const editingImages = ref([]);
 
     // Pagination
     const paginationInfo = ref({
@@ -315,6 +346,7 @@ export default {
     const logsContainer = ref(null);
     const messagesContainer = ref(null);
     const fileInput = ref(null);
+    const editFileInput = ref(null);
 
     // Computed
     const chatTitle = computed(() => {
@@ -764,14 +796,94 @@ export default {
 
       editingMessageId.value = messageId;
       editMessageText.value = message.message;
+      // Convert existing image URLs to new format {url, file: null, isExisting: true}
+      editingImages.value = (message.imageUrls || []).map((url) => ({
+        url,
+        file: null,
+        isExisting: true,
+      }));
 
       console.log("Edit state set - editingMessageId:", editingMessageId.value);
       console.log("Edit state set - editMessageText:", editMessageText.value);
+      console.log("Edit state set - editingImages:", editingImages.value);
     };
 
     const cancelEditMessage = () => {
       editingMessageId.value = null;
       editMessageText.value = "";
+      editingImages.value = [];
+    };
+
+    const handleEditFileSelect = async (event) => {
+      const files = Array.from(event.target.files);
+      for (const file of files) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          editingImages.value.push({
+            url: e.target.result,
+            file: file,
+            isExisting: false,
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+      // Reset input to allow selecting same file again
+      event.target.value = "";
+    };
+
+    const removeEditFile = (index) => {
+      editingImages.value.splice(index, 1);
+    };
+
+    const uploadEditImages = async () => {
+      try {
+        // Separate existing URLs and new files
+        const existingUrls = editingImages.value
+          .filter((img) => img.isExisting)
+          .map((img) => img.url);
+
+        const newFiles = editingImages.value.filter(
+          (img) => !img.isExisting && img.file,
+        );
+
+        // If no new files, return existing URLs
+        if (newFiles.length === 0) {
+          return existingUrls.length > 0 ? existingUrls : null;
+        }
+
+        // Upload new files with proper filenames
+        const formData = new FormData();
+        for (const item of newFiles) {
+          // Use actual file object which preserves filename and mimetype
+          formData.append("images", item.file, item.file.name);
+        }
+
+        console.log("📤 Uploading", newFiles.length, "new image(s)...");
+        const response = await axios.post(
+          `${apiUrl.value}/api/Chat/upload-images`,
+          formData,
+          {
+            headers: {
+              Authorization: `Bearer ${token.value}`,
+              "Content-Type": "multipart/form-data",
+            },
+          },
+        );
+
+        if (response.data.isSuccess) {
+          const uploadedUrls = response.data.data.uploadedUrls;
+          console.log("✅ Uploaded URLs:", uploadedUrls);
+          // Combine existing URLs with newly uploaded URLs
+          const allUrls = [...existingUrls, ...uploadedUrls];
+          console.log("📋 Final image URLs:", allUrls);
+          return allUrls.length > 0 ? allUrls : null;
+        }
+        return null;
+      } catch (error) {
+        console.error("❌ Upload error:", error);
+        addLog(`❌ Upload failed: ${error.message}`);
+        return null;
+      }
     };
 
     const saveEditMessage = async () => {
@@ -789,18 +901,36 @@ export default {
       console.log("🔑 Editing message ID:", messageId);
 
       try {
+        // Upload images - uploadEditImages returns null if no images, or array of URLs
+        let imageUrls = null;
+        if (editingImages.value.length > 0) {
+          imageUrls = await uploadEditImages();
+          // Only return if upload explicitly failed (null when there were files to upload)
+          if (
+            imageUrls === null &&
+            editingImages.value.some((img) => !img.isExisting)
+          ) {
+            addLog("❌ Failed to upload images");
+            return;
+          }
+        }
+
+        console.log("🖼️ Final imageUrls to send:", imageUrls);
+
         if (chatMode.value === "room") {
           console.log("🟢 Calling editMessageInRoom...");
           console.log("Parameters:", {
             messageId,
             roomId: roomId.value,
             newMessage: editMessageText.value,
+            imageUrls,
           });
 
           await chatSignalRService.editMessageInRoom(
             messageId,
             roomId.value,
             editMessageText.value,
+            imageUrls,
           );
 
           console.log("✅ editMessageInRoom completed");
@@ -810,12 +940,14 @@ export default {
             messageId,
             breakroomId: breakroomId.value,
             newMessage: editMessageText.value,
+            imageUrls,
           });
 
           await chatSignalRService.editMessageInBreakroom(
             messageId,
             breakroomId.value,
             editMessageText.value,
+            imageUrls,
           );
 
           console.log("✅ editMessageInBreakroom completed");
@@ -824,25 +956,21 @@ export default {
           console.log("Parameters:", {
             messageId,
             newMessage: editMessageText.value,
+            imageUrls,
           });
-          console.log("chatSignalRService:", chatSignalRService);
-          console.log(
-            "editMessageP2P function:",
-            chatSignalRService.editMessageP2P,
-          );
 
-          // Try without imageUrls parameter (let backend use default)
-          console.log("🔧 Attempting editMessageP2P with 2 params only...");
-          const result = await chatSignalRService.editMessageP2P(
+          await chatSignalRService.editMessageP2P(
             messageId,
             editMessageText.value,
+            imageUrls,
           );
 
-          console.log("✅ editMessageP2P completed, result:", result);
+          console.log("✅ editMessageP2P completed");
         }
 
         editingMessageId.value = null;
         editMessageText.value = "";
+        editingImages.value = [];
         addLog("✅ Message edited");
         console.log("✅ Edit completed successfully");
       } catch (error) {
@@ -1006,6 +1134,7 @@ export default {
       logsContainer,
       messagesContainer,
       fileInput,
+      editFileInput,
 
       // Methods
       joinRoom,
@@ -1028,10 +1157,13 @@ export default {
       // Edit message
       editingMessageId,
       editMessageText,
+      editingImages,
       startEditMessage,
       cancelEditMessage,
       saveEditMessage,
       deleteMessage,
+      handleEditFileSelect,
+      removeEditFile,
     };
   },
 };
