@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using server.Hubs;
+using server.Models.Chats;
 using server.Service.Interfaces;
 using server.Service.Models.Chats;
 
@@ -21,9 +22,7 @@ namespace server.Controllers.Chats
             _hub = hub;
         }
 
-        /// <summary>
-        /// Forward tin nh?n ??n Room
-        /// </summary>
+   
         [HttpPost("forward/room")]
         public async Task<IActionResult> ForwardToRoom([FromBody] ForwardToRoomRequest request)
         {
@@ -49,9 +48,7 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        /// <summary>
-        /// Forward tin nh?n ??n P2P
-        /// </summary>
+       
         [HttpPost("forward/p2p")]
         public async Task<IActionResult> ForwardToP2P([FromBody] ForwardToP2PRequest request)
         {
@@ -80,9 +77,7 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        /// <summary>
-        /// Forward tin nh?n ??n Breakroom
-        /// </summary>
+ 
         [HttpPost("forward/breakroom")]
         public async Task<IActionResult> ForwardToBreakroom([FromBody] ForwardToBreakroomRequest request)
         {
@@ -108,32 +103,4 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
     }
-
-    #region Request Models
-
-    public class ForwardToRoomRequest
-    {
-        public int SourceMessageId { get; set; }
-        public string SourceType { get; set; } = string.Empty; // "room", "p2p", "breakroom"
-        public int SourceId { get; set; }
-        public int TargetRoomId { get; set; }
-    }
-
-    public class ForwardToP2PRequest
-    {
-        public int SourceMessageId { get; set; }
-        public string SourceType { get; set; } = string.Empty;
-        public int SourceId { get; set; }
-        public int TargetReceiverId { get; set; }
-    }
-
-    public class ForwardToBreakroomRequest
-    {
-        public int SourceMessageId { get; set; }
-        public string SourceType { get; set; } = string.Empty;
-        public int SourceId { get; set; }
-        public int TargetBreakroomId { get; set; }
-    }
-
-    #endregion
 }

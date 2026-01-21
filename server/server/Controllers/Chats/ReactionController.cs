@@ -20,11 +20,8 @@ namespace server.Controllers.Chats
             _hub = hub;
         }
 
-        #region Room Reactions
+       
 
-        /// <summary>
-        /// Toggle reaction cho tin nh?n trong Room (th? ho?c g?)
-        /// </summary>
         [HttpPost("rooms/{roomId:int}/messages/{messageId:int}/reactions")]
         public async Task<IActionResult> ToggleReactionInRoom(
             [FromRoute] int roomId,
@@ -44,9 +41,6 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        /// <summary>
-        /// L?y danh sách reactions c?a tin nh?n trong Room
-        /// </summary>
         [HttpGet("rooms/{roomId:int}/messages/{messageId:int}/reactions")]
         public async Task<IActionResult> GetReactionsInRoom(
             [FromRoute] int roomId,
@@ -56,13 +50,9 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        #endregion
+        
 
-        #region Breakroom Reactions
-
-        /// <summary>
-        /// Toggle reaction cho tin nh?n trong Breakroom
-        /// </summary>
+   
         [HttpPost("breakrooms/{breakroomId:int}/messages/{messageId:int}/reactions")]
         public async Task<IActionResult> ToggleReactionInBreakroom(
             [FromRoute] int breakroomId,
@@ -94,13 +84,9 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        #endregion
+       
 
-        #region P2P Reactions
-
-        /// <summary>
-        /// Toggle reaction cho tin nh?n P2P
-        /// </summary>
+   
         [HttpPost("p2p/messages/{messageId:int}/reactions")]
         public async Task<IActionResult> ToggleReactionP2P(
             [FromRoute] int messageId,
@@ -113,17 +99,14 @@ namespace server.Controllers.Chats
             var result = await _reactionService.ToggleReactionP2P(messageId, userId.Value, request.Emoji);
             if (!result.IsSuccess) return FromApiResult(result);
 
-            // Broadcast to both sender and receiver
-            // Note: receiverId should be fetched from message, but for simplicity we broadcast to caller's group
+           
             await _hub.Clients.Group($"user_{userId.Value}")
                 .SendAsync("ReactionUpdated", result.Data);
 
             return FromApiResult(result);
         }
 
-        /// <summary>
-        /// L?y danh sách reactions c?a tin nh?n P2P
-        /// </summary>
+
         [HttpGet("p2p/messages/{messageId:int}/reactions")]
         public async Task<IActionResult> GetReactionsP2P([FromRoute] int messageId)
         {
@@ -131,7 +114,7 @@ namespace server.Controllers.Chats
             return FromApiResult(result);
         }
 
-        #endregion
+       
     }
 
     public class ToggleReactionRequest
