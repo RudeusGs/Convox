@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="header">
       <div class="user-info">
-        <h2>🎓 Convox Chat Test</h2>
+        <h2>🎓 Convox Chat Test - Full Features</h2>
         <span>User: {{ username }} (ID: {{ userId }})</span>
       </div>
       <div class="header-actions">
@@ -93,6 +93,103 @@
             <option value="breakroom">Breakroom Chat</option>
             <option value="p2p">P2P Chat</option>
           </select>
+        </div>
+
+        <!-- Reactions Test -->
+        <div class="section">
+          <h3>😀 Reactions</h3>
+          <div class="input-group">
+            <label>Message ID:</label>
+            <input v-model.number="testMessageId" type="number" />
+          </div>
+          <div class="input-group">
+            <label>Emoji:</label>
+            <input v-model="testEmoji" type="text" placeholder="👍❤️😂" />
+          </div>
+          <button
+            class="btn btn-primary"
+            @click="testToggleReaction"
+            :disabled="!isConnected || !testMessageId"
+          >
+            Toggle Reaction
+          </button>
+          <button
+            class="btn btn-secondary"
+            @click="testGetReactions"
+            :disabled="!isConnected || !testMessageId"
+          >
+            Get Reactions
+          </button>
+        </div>
+
+        <!-- Pin Messages Test -->
+        <div class="section">
+          <h3>📌 Pin Messages</h3>
+          <div class="input-group">
+            <label>Message ID:</label>
+            <input v-model.number="testPinMessageId" type="number" />
+          </div>
+          <button
+            class="btn btn-primary"
+            @click="testPinMessage"
+            :disabled="!isConnected || !testPinMessageId"
+          >
+            Pin Message
+          </button>
+          <button
+            class="btn btn-danger"
+            @click="testUnpinMessage"
+            :disabled="!isConnected || !testPinMessageId"
+          >
+            Unpin Message
+          </button>
+          <button
+            class="btn btn-secondary"
+            @click="testGetPinnedMessages"
+            :disabled="!isConnected"
+          >
+            Get Pinned
+          </button>
+        </div>
+
+        <!-- Forward Messages Test -->
+        <div class="section">
+          <h3>↪️ Forward</h3>
+          <div class="input-group">
+            <label>Source Message ID:</label>
+            <input v-model.number="forwardSourceId" type="number" />
+          </div>
+          <div class="input-group">
+            <label>Source Type:</label>
+            <select v-model="forwardSourceType">
+              <option value="room">Room</option>
+              <option value="breakroom">Breakroom</option>
+              <option value="p2p">P2P</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Source ID (Room/BR/User):</label>
+            <input v-model.number="forwardSourceChatId" type="number" />
+          </div>
+          <div class="input-group">
+            <label>Target Type:</label>
+            <select v-model="forwardTargetType">
+              <option value="room">Room</option>
+              <option value="breakroom">Breakroom</option>
+              <option value="p2p">P2P</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <label>Target ID:</label>
+            <input v-model.number="forwardTargetId" type="number" />
+          </div>
+          <button
+            class="btn btn-primary"
+            @click="testForwardMessage"
+            :disabled="!isConnected || !forwardSourceId"
+          >
+            Forward
+          </button>
         </div>
 
         <!-- Logs -->
@@ -215,6 +312,27 @@
 
               <!-- Normal mode -->
               <template v-else>
+                <!-- Reply To Message (if exists) -->
+                <div v-if="message.replyToMessageId" class="reply-to-message">
+                  <div class="reply-indicator">
+                    <div class="reply-icon">↪️</div>
+                    <div class="reply-content">
+                      <span class="reply-author"
+                        >Reply to User
+                        {{
+                          getReplyToMessage(message.replyToMessageId)?.userId ||
+                          getReplyToMessage(message.replyToMessageId)
+                            ?.senderId ||
+                          "?"
+                        }}</span
+                      >
+                      <span class="reply-message-text">{{
+                        getReplyToMessageContent(message.replyToMessageId)
+                      }}</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="message-content">{{ message.message }}</div>
                 <div
                   v-if="message.imageUrls && message.imageUrls.length > 0"
@@ -229,14 +347,77 @@
                   />
                 </div>
 
-                <!-- Edit and Delete buttons for own messages -->
-                <div v-if="isOwnMessage(message)" class="message-actions">
-                  <button class="btn-edit" @click="startEditMessage(message)">
-                    ✏️ Edit
+                <!-- Reactions Display -->
+                <div
+                  v-if="message.reactions && message.reactions.length > 0"
+                  class="message-reactions-display"
+                >
+                  <span
+                    v-for="(reaction, rIdx) in message.reactions"
+                    :key="rIdx"
+                    class="reaction-item"
+                    :class="{ 'own-reaction': reaction.isOwn }"
+                  >
+                    {{ reaction.emoji }} {{ reaction.count }}
+                  </span>
+                  <span class="total-reactions">
+                    {{ getTotalReactionCount(message.reactions) }} người đã
+                    react
+                  </span>
+                </div>
+
+                <!-- Message Action Buttons -->
+                <div class="message-actions-row">
+                  <!-- Reaction Button with Emoji Picker -->
+                  <div class="reaction-dropdown">
+                    <button
+                      class="btn-action btn-react"
+                      @click="
+                        toggleEmojiPicker(message.id || message.messageId)
+                      "
+                    >
+                      😀
+                    </button>
+                    <div
+                      v-if="
+                        showEmojiPicker === (message.id || message.messageId)
+                      "
+                      class="emoji-picker"
+                    >
+                      <span
+                        v-for="emoji in quickEmojis"
+                        :key="emoji"
+                        class="emoji-option"
+                        @click="addReaction(message, emoji)"
+                      >
+                        {{ emoji }}
+                      </span>
+                    </div>
+                  </div>
+
+                  <!-- Reply Button -->
+                  <button
+                    class="btn-action btn-reply"
+                    @click="startReply(message)"
+                  >
+                    ↪️ Reply
                   </button>
-                  <button class="btn-delete" @click="deleteMessage(message)">
-                    🗑️ Delete
-                  </button>
+
+                  <!-- Edit and Delete buttons for own messages -->
+                  <template v-if="isOwnMessage(message)">
+                    <button
+                      class="btn-action btn-edit"
+                      @click="startEditMessage(message)"
+                    >
+                      ✏️ Edit
+                    </button>
+                    <button
+                      class="btn-action btn-delete"
+                      @click="deleteMessage(message)"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </template>
                 </div>
               </template>
             </template>
@@ -259,6 +440,18 @@
             style="display: none"
             @change="handleFileSelect"
           />
+
+          <!-- Reply Preview -->
+          <div v-if="replyingTo" class="reply-preview">
+            <div class="reply-preview-content">
+              <span class="reply-label"
+                >↪️ Replying to User
+                {{ replyingTo.userId || replyingTo.senderId }}:</span
+              >
+              <span class="reply-text">{{ replyingTo.message }}</span>
+            </div>
+            <button class="reply-cancel" @click="cancelReply">✕</button>
+          </div>
 
           <div v-if="selectedFiles.length > 0" class="image-preview">
             <div
@@ -332,6 +525,21 @@ export default {
     const editingMessageId = ref(null);
     const editMessageText = ref("");
     const editingImages = ref([]);
+
+    // Test features
+    const testMessageId = ref(null);
+    const testEmoji = ref("👍");
+    const testPinMessageId = ref(null);
+    const forwardSourceId = ref(null);
+    const forwardSourceType = ref("room");
+    const forwardSourceChatId = ref(1);
+    const forwardTargetType = ref("room");
+    const forwardTargetId = ref(1);
+
+    // Reaction and Reply UI
+    const showEmojiPicker = ref(null);
+    const quickEmojis = ref(["👍", "❤️", "😂", "😮", "😢", "🔥", "🎉", "👏"]);
+    const replyingTo = ref(null);
 
     // Pagination
     const paginationInfo = ref({
@@ -416,6 +624,32 @@ export default {
 
     const openImage = (url) => {
       window.open(url, "_blank");
+    };
+
+    // Helper: Get replied message
+    const getReplyToMessage = (replyToMessageId) => {
+      if (!replyToMessageId) return null;
+      return messages.value.find(
+        (m) => (m.id || m.messageId || m.Id) === replyToMessageId,
+      );
+    };
+
+    const getReplyToMessageContent = (replyToMessageId) => {
+      const replyMsg = getReplyToMessage(replyToMessageId);
+      if (!replyMsg) return "Message not found";
+
+      const content = replyMsg.message || replyMsg.Message || "";
+      // Truncate if too long
+      return content.length > 50 ? content.substring(0, 50) + "..." : content;
+    };
+
+    // Helper: Calculate total reaction count
+    const getTotalReactionCount = (reactions) => {
+      if (!reactions || reactions.length === 0) return 0;
+      return reactions.reduce(
+        (total, reaction) => total + (reaction.count || 0),
+        0,
+      );
     };
 
     // SignalR
@@ -552,19 +786,90 @@ export default {
           );
         }
       });
+
+      // Reaction events
+      chatSignalRService.onReactionUpdated((data) => {
+        console.log("😀 ReactionUpdated event:", data);
+        addLog(
+          `😀 Reaction ${data.Action}: ${data.Emoji} on message ${data.MessageId}`,
+        );
+
+        // Update reactions in messages array realtime
+        const messageId = data.MessageId || data.messageId;
+        const reactions = data.Reactions || data.reactions || [];
+
+        // Find and update the message
+        const messageIndex = messages.value.findIndex(
+          (m) => (m.id || m.messageId || m.Id) === messageId,
+        );
+
+        if (messageIndex !== -1) {
+          // Normalize reactions with isOwn flag
+          const normalizedReactions = reactions.map((r) => {
+            const emoji = r.Emoji || r.emoji;
+            const count = r.Count || r.count;
+            const userIds = r.UserIds || r.userIds || [];
+            const isOwn = userIds.includes(userId.value);
+
+            return { emoji, count, isOwn };
+          });
+
+          // Update the message reactions
+          messages.value[messageIndex].reactions = normalizedReactions;
+          console.log(
+            `✅ Updated reactions for message ${messageId}:`,
+            normalizedReactions,
+          );
+        } else {
+          console.warn(`⚠️ Message ${messageId} not found in messages array`);
+        }
+      });
+
+      chatSignalRService.onReactionsLoaded((data) => {
+        console.log("😀 ReactionsLoaded event:", data);
+        addLog(
+          `😀 Loaded ${data.Reactions?.length || 0} reactions for message ${data.MessageId}`,
+        );
+        alert(`Reactions:\n${JSON.stringify(data, null, 2)}`);
+      });
+
+      // Pin events
+      chatSignalRService.onMessagePinned((data) => {
+        console.log("📌 MessagePinned event:", data);
+        addLog(
+          `📌 Message ${data.MessageId} pinned by user ${data.PinnedByUserId}`,
+        );
+      });
+
+      chatSignalRService.onMessageUnpinned((data) => {
+        console.log("📌 MessageUnpinned event:", data);
+        addLog(
+          `📌 Message ${data.MessageId} unpinned by user ${data.UnpinnedByUserId}`,
+        );
+      });
+
+      chatSignalRService.onPinnedMessagesLoaded((data) => {
+        console.log("📌 PinnedMessagesLoaded event:", data);
+        addLog(`📌 Loaded ${data.length || 0} pinned messages`);
+        alert(`Pinned Messages:\n${JSON.stringify(data, null, 2)}`);
+      });
     };
 
     // Room management
     const joinRoom = async () => {
       try {
-        const password = roomPassword.value.trim() || null;
-        await chatSignalRService.joinRoom(roomId.value, password);
+        // Backend JoinRoom không có password parameter, chỉ add vào SignalR group
+        await chatSignalRService.joinRoom(roomId.value);
         inRoom.value = true;
         addLog(`✅ Joined room ${roomId.value}`);
+
+        // Auto load history after join
+        console.log("🔄 Auto-loading room history...");
         await loadRoomHistory();
       } catch (error) {
         addLog(`❌ Join room failed: ${error.message}`);
         alert(`Join room failed: ${error.message}`);
+        console.error("Join room error:", error);
       }
     };
 
@@ -608,7 +913,44 @@ export default {
         );
         if (response.data.isSuccess) {
           messages.value = [];
-          response.data.data.messages.forEach((msg) => addMessageToChat(msg));
+          console.log("📥 Room history data:", response.data.data.messages);
+          response.data.data.messages.forEach((msg) => {
+            // Normalize message format (backend có thể trả PascalCase hoặc camelCase)
+            const reactions = msg.reactions || msg.Reactions || [];
+            console.log(
+              `🔍 Message ${msg.id || msg.Id} raw reactions from backend:`,
+              reactions,
+            );
+
+            const normalizedReactions = reactions.map((r) => {
+              const userIds = r.userIds || r.UserIds || [];
+              console.log(
+                `  - Reaction ${r.emoji || r.Emoji}: count=${r.count || r.Count}, userIds=`,
+                userIds,
+                `isOwn=${userIds.includes(userId.value)}`,
+              );
+              return {
+                emoji: r.emoji || r.Emoji,
+                count: r.count || r.Count,
+                isOwn: userIds.includes(userId.value),
+              };
+            });
+
+            const normalizedMsg = {
+              ...msg,
+              id: msg.id || msg.Id,
+              messageId: msg.messageId || msg.MessageId || msg.id || msg.Id,
+              userId: msg.userId || msg.UserId,
+              message: msg.message || msg.Message,
+              imageUrls: msg.imageUrls || msg.ImageUrls,
+              createdDate: msg.createdDate || msg.CreatedDate,
+              isEdited: msg.isEdited || msg.IsEdited,
+              replyToMessageId: msg.replyToMessageId || msg.ReplyToMessageId,
+              reactions: normalizedReactions,
+            };
+            console.log("✅ Normalized message:", normalizedMsg);
+            addMessageToChat(normalizedMsg);
+          });
         }
       } catch (error) {
         addLog(`❌ Load history failed: ${error.message}`);
@@ -623,7 +965,34 @@ export default {
         );
         if (response.data.isSuccess) {
           messages.value = [];
-          response.data.data.messages.forEach((msg) => addMessageToChat(msg));
+          console.log(
+            "📥 Breakroom history data:",
+            response.data.data.messages,
+          );
+          response.data.data.messages.forEach((msg) => {
+            // Normalize message format
+            const reactions = msg.reactions || msg.Reactions || [];
+            const normalizedReactions = reactions.map((r) => ({
+              emoji: r.emoji || r.Emoji,
+              count: r.count || r.Count,
+              isOwn: (r.userIds || r.UserIds || []).includes(userId.value),
+            }));
+
+            const normalizedMsg = {
+              ...msg,
+              id: msg.id || msg.Id,
+              messageId: msg.messageId || msg.MessageId || msg.id || msg.Id,
+              userId: msg.userId || msg.UserId,
+              message: msg.message || msg.Message,
+              imageUrls: msg.imageUrls || msg.ImageUrls,
+              createdDate: msg.createdDate || msg.CreatedDate,
+              isEdited: msg.isEdited || msg.IsEdited,
+              replyToMessageId: msg.replyToMessageId || msg.ReplyToMessageId,
+              reactions: normalizedReactions,
+            };
+            console.log("✅ Normalized message:", normalizedMsg);
+            addMessageToChat(normalizedMsg);
+          });
         }
       } catch (error) {
         addLog(`❌ Load history failed: ${error.message}`);
@@ -654,7 +1023,33 @@ export default {
             `✅ Loaded ${data.messages.length} messages (Page ${data.currentPage}/${data.totalPages}, Total: ${data.totalMessages})`,
           );
 
-          data.messages.forEach((msg) => addMessageToChat(msg));
+          console.log("📥 P2P history data:", data.messages);
+          data.messages.forEach((msg) => {
+            // Normalize message format
+            const reactions = msg.reactions || msg.Reactions || [];
+            const normalizedReactions = reactions.map((r) => ({
+              emoji: r.emoji || r.Emoji,
+              count: r.count || r.Count,
+              isOwn: (r.userIds || r.UserIds || []).includes(userId.value),
+            }));
+
+            const normalizedMsg = {
+              ...msg,
+              id: msg.id || msg.Id,
+              messageId: msg.messageId || msg.MessageId || msg.id || msg.Id,
+              userId: msg.userId || msg.UserId,
+              senderId: msg.senderId || msg.SenderId,
+              receiverId: msg.receiverId || msg.ReceiverId,
+              message: msg.message || msg.Message,
+              imageUrls: msg.imageUrls || msg.ImageUrls,
+              createdDate: msg.createdDate || msg.CreatedDate,
+              isEdited: msg.isEdited || msg.IsEdited,
+              replyToMessageId: msg.replyToMessageId || msg.ReplyToMessageId,
+              reactions: normalizedReactions,
+            };
+            console.log("✅ Normalized P2P message:", normalizedMsg);
+            addMessageToChat(normalizedMsg);
+          });
 
           // Log pagination info
           if (data.totalPages > 1) {
@@ -697,6 +1092,9 @@ export default {
 
       try {
         let imageUrls = null;
+        const replyToMessageId = replyingTo.value
+          ? replyingTo.value.id || replyingTo.value.messageId
+          : null;
 
         if (selectedFiles.value.length > 0) {
           imageUrls = await uploadImages();
@@ -715,6 +1113,7 @@ export default {
             roomId.value,
             newMessage.value,
             imageUrls,
+            replyToMessageId,
           );
         } else if (chatMode.value === "breakroom") {
           if (!inBreakroom.value) {
@@ -725,17 +1124,20 @@ export default {
             breakroomId.value,
             newMessage.value,
             imageUrls,
+            replyToMessageId,
           );
         } else if (chatMode.value === "p2p") {
           await chatSignalRService.sendMessageP2P(
             receiverId.value,
             newMessage.value,
             imageUrls,
+            replyToMessageId,
           );
         }
 
         newMessage.value = "";
         selectedFiles.value = [];
+        replyingTo.value = null;
         addLog("✅ Message sent");
       } catch (error) {
         addLog(`❌ Send message failed: ${error.message}`);
@@ -1048,6 +1450,223 @@ export default {
       }
     };
 
+    // ==================== TEST REACTIONS ====================
+    const testToggleReaction = async () => {
+      try {
+        addLog(
+          `😀 Toggling reaction ${testEmoji.value} on message ${testMessageId.value}`,
+        );
+
+        if (chatMode.value === "room") {
+          await chatSignalRService.toggleReactionInRoom(
+            roomId.value,
+            testMessageId.value,
+            testEmoji.value,
+          );
+        } else if (chatMode.value === "breakroom") {
+          await chatSignalRService.toggleReactionInBreakroom(
+            breakroomId.value,
+            testMessageId.value,
+            testEmoji.value,
+          );
+        } else if (chatMode.value === "p2p") {
+          await chatSignalRService.toggleReactionP2P(
+            testMessageId.value,
+            testEmoji.value,
+          );
+        }
+
+        addLog("✅ Reaction toggled");
+      } catch (error) {
+        addLog(`❌ Toggle reaction failed: ${error.message}`);
+        alert("Toggle reaction failed: " + error.message);
+      }
+    };
+
+    const testGetReactions = async () => {
+      try {
+        addLog(`😀 Getting reactions for message ${testMessageId.value}`);
+
+        if (chatMode.value === "room") {
+          await chatSignalRService.getReactionsInRoom(testMessageId.value);
+        } else if (chatMode.value === "breakroom") {
+          await chatSignalRService.getReactionsInBreakroom(testMessageId.value);
+        } else if (chatMode.value === "p2p") {
+          await chatSignalRService.getReactionsP2P(testMessageId.value);
+        }
+
+        addLog("✅ Get reactions sent (check event listener)");
+      } catch (error) {
+        addLog(`❌ Get reactions failed: ${error.message}`);
+        alert("Get reactions failed: " + error.message);
+      }
+    };
+
+    // ==================== TEST PIN MESSAGES ====================
+    const testPinMessage = async () => {
+      try {
+        addLog(`📌 Pinning message ${testPinMessageId.value}`);
+
+        if (chatMode.value === "room") {
+          await chatSignalRService.pinMessageInRoom(
+            roomId.value,
+            testPinMessageId.value,
+          );
+        } else if (chatMode.value === "breakroom") {
+          await chatSignalRService.pinMessageInBreakroom(
+            breakroomId.value,
+            testPinMessageId.value,
+          );
+        } else {
+          alert("Pin messages only available for Room and Breakroom");
+          return;
+        }
+
+        addLog("✅ Message pinned");
+      } catch (error) {
+        addLog(`❌ Pin message failed: ${error.message}`);
+        alert("Pin message failed: " + error.message);
+      }
+    };
+
+    const testUnpinMessage = async () => {
+      try {
+        addLog(`📌 Unpinning message ${testPinMessageId.value}`);
+
+        if (chatMode.value === "room") {
+          await chatSignalRService.unpinMessageInRoom(
+            roomId.value,
+            testPinMessageId.value,
+          );
+        } else if (chatMode.value === "breakroom") {
+          await chatSignalRService.unpinMessageInBreakroom(
+            breakroomId.value,
+            testPinMessageId.value,
+          );
+        } else {
+          alert("Unpin messages only available for Room and Breakroom");
+          return;
+        }
+
+        addLog("✅ Message unpinned");
+      } catch (error) {
+        addLog(`❌ Unpin message failed: ${error.message}`);
+        alert("Unpin message failed: " + error.message);
+      }
+    };
+
+    const testGetPinnedMessages = async () => {
+      try {
+        addLog(`📌 Getting pinned messages`);
+
+        if (chatMode.value === "room") {
+          await chatSignalRService.getPinnedMessagesInRoom(roomId.value);
+        } else if (chatMode.value === "breakroom") {
+          await chatSignalRService.getPinnedMessagesInBreakroom(
+            breakroomId.value,
+          );
+        } else {
+          alert("Get pinned messages only available for Room and Breakroom");
+          return;
+        }
+
+        addLog("✅ Get pinned messages sent (check event listener)");
+      } catch (error) {
+        addLog(`❌ Get pinned messages failed: ${error.message}`);
+        alert("Get pinned messages failed: " + error.message);
+      }
+    };
+
+    // ==================== REACTION & REPLY UI ====================
+    const toggleEmojiPicker = (messageId) => {
+      if (showEmojiPicker.value === messageId) {
+        showEmojiPicker.value = null;
+      } else {
+        showEmojiPicker.value = messageId;
+      }
+    };
+
+    const addReaction = async (message, emoji) => {
+      try {
+        const messageId = message.id || message.messageId;
+        addLog(`😀 Adding reaction ${emoji} to message ${messageId}`);
+
+        if (chatMode.value === "room") {
+          await chatSignalRService.toggleReactionInRoom(
+            roomId.value,
+            messageId,
+            emoji,
+          );
+        } else if (chatMode.value === "breakroom") {
+          await chatSignalRService.toggleReactionInBreakroom(
+            breakroomId.value,
+            messageId,
+            emoji,
+          );
+        } else if (chatMode.value === "p2p") {
+          await chatSignalRService.toggleReactionP2P(messageId, emoji);
+        }
+
+        showEmojiPicker.value = null;
+        addLog("✅ Reaction added");
+      } catch (error) {
+        addLog(`❌ Add reaction failed: ${error.message}`);
+        alert("Add reaction failed: " + error.message);
+      }
+    };
+
+    const startReply = (message) => {
+      replyingTo.value = message;
+      addLog(`↪️ Replying to message ${message.id || message.messageId}`);
+      // Focus on input
+      nextTick(() => {
+        const input = document.querySelector('.chat-input input[type="text"]');
+        if (input) input.focus();
+      });
+    };
+
+    const cancelReply = () => {
+      replyingTo.value = null;
+      addLog("❌ Reply cancelled");
+    };
+
+    // ==================== TEST FORWARD MESSAGES ====================
+    const testForwardMessage = async () => {
+      try {
+        addLog(
+          `↪️ Forwarding message ${forwardSourceId.value} from ${forwardSourceType.value} to ${forwardTargetType.value}`,
+        );
+
+        if (forwardTargetType.value === "room") {
+          await chatSignalRService.forwardToRoom(
+            forwardSourceId.value,
+            forwardSourceType.value,
+            forwardSourceChatId.value,
+            forwardTargetId.value,
+          );
+        } else if (forwardTargetType.value === "breakroom") {
+          await chatSignalRService.forwardToBreakroom(
+            forwardSourceId.value,
+            forwardSourceType.value,
+            forwardSourceChatId.value,
+            forwardTargetId.value,
+          );
+        } else if (forwardTargetType.value === "p2p") {
+          await chatSignalRService.forwardToP2P(
+            forwardSourceId.value,
+            forwardSourceType.value,
+            forwardSourceChatId.value,
+            forwardTargetId.value,
+          );
+        }
+
+        addLog("✅ Message forwarded");
+      } catch (error) {
+        addLog(`❌ Forward message failed: ${error.message}`);
+        alert("Forward message failed: " + error.message);
+      }
+    };
+
     // Logout
     const logout = () => {
       localStorage.clear();
@@ -1153,6 +1772,9 @@ export default {
       isOwnMessage,
       formatTime,
       openImage,
+      getReplyToMessage,
+      getReplyToMessageContent,
+      getTotalReactionCount,
 
       // Edit message
       editingMessageId,
@@ -1164,6 +1786,31 @@ export default {
       deleteMessage,
       handleEditFileSelect,
       removeEditFile,
+
+      // Test features
+      testMessageId,
+      testEmoji,
+      testPinMessageId,
+      forwardSourceId,
+      forwardSourceType,
+      forwardSourceChatId,
+      forwardTargetType,
+      forwardTargetId,
+      testToggleReaction,
+      testGetReactions,
+      testPinMessage,
+      testUnpinMessage,
+      testGetPinnedMessages,
+      testForwardMessage,
+
+      // Reaction & Reply UI
+      showEmojiPicker,
+      quickEmojis,
+      replyingTo,
+      toggleEmojiPicker,
+      addReaction,
+      startReply,
+      cancelReply,
     };
   },
 };
@@ -1284,6 +1931,13 @@ export default {
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.section h3 {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .btn {
@@ -1592,5 +2246,242 @@ export default {
 
 .btn-cancel:hover {
   background: #757575;
+}
+
+/* Reply To Message Styling */
+.reply-to-message {
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  background: #f0f0f0;
+  border-left: 3px solid #2196f3;
+  border-radius: 4px;
+}
+
+.reply-indicator {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.reply-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.reply-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.reply-author {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2196f3;
+}
+
+.reply-message-text {
+  font-size: 12px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Reactions Display */
+.message-reactions-display {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.reaction-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reaction-item:hover {
+  background: #e8e8e8;
+  transform: scale(1.05);
+}
+
+.reaction-item.own-reaction {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  font-weight: 600;
+}
+
+.total-reactions {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: #ffffff;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 11px;
+  color: #888;
+  font-style: italic;
+  margin-left: 4px;
+}
+
+/* Message Action Buttons Row */
+.message-actions-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s;
+  background: #f5f5f5;
+  color: #666;
+}
+
+.btn-action:hover {
+  background: #e0e0e0;
+  transform: translateY(-1px);
+}
+
+.btn-react {
+  font-size: 14px;
+}
+
+.btn-reply {
+  color: #2196f3;
+}
+
+.btn-reply:hover {
+  background: #e3f2fd;
+}
+
+.btn-edit {
+  color: #2196f3;
+}
+
+.btn-edit:hover {
+  background: #e3f2fd;
+}
+
+.btn-delete {
+  color: #f44336;
+}
+
+.btn-delete:hover {
+  background: #ffebee;
+}
+
+/* Emoji Picker */
+.reaction-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.emoji-picker {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 5px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  gap: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: fadeInUp 0.2s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.emoji-option {
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.emoji-option:hover {
+  background: #f0f0f0;
+  transform: scale(1.2);
+}
+
+/* Reply Preview in Input */
+.reply-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: #e3f2fd;
+  border-left: 3px solid #2196f3;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.reply-preview-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reply-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2196f3;
+}
+
+.reply-text {
+  font-size: 13px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 400px;
+}
+
+.reply-cancel {
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.reply-cancel:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #f44336;
 }
 </style>

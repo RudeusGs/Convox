@@ -23,7 +23,7 @@ namespace server.Service.Services.Chats
                      (m.SenderId == userId2 && m.ReceiverId == userId1)))
                 .CountAsync();
 
-            var messages = await _dataContext.ChatP2Ps
+            var pageMessages = await _dataContext.ChatP2Ps
                 .Where(m => m.DeletedDate == null &&
                     ((m.SenderId == userId1 && m.ReceiverId == userId2) ||
                      (m.SenderId == userId2 && m.ReceiverId == userId1)))
@@ -37,12 +37,84 @@ namespace server.Service.Services.Chats
                     m.ReceiverId,
                     m.Message,
                     m.MessageType,
+                    m.ImageUrl,
+                    m.CreatedDate,
+                    m.UpdatedDate,
+                    IsEdited = m.IsEdited,
+                    m.ReplyToMessageId,
+                    m.IsForwarded,
+                    m.ForwardedFromMessageId,
+                    m.ForwardedFromSource
+                })
+                .ToListAsync();
+
+            var replyIds = pageMessages
+                .Where(m => m.ReplyToMessageId.HasValue)
+                .Select(m => m.ReplyToMessageId!.Value)
+                .Distinct()
+                .ToList();
+
+            var replyLookup = replyIds.Count == 0
+                ? new Dictionary<int, object>()
+                : await _dataContext.ChatP2Ps
+                    .Where(m => replyIds.Contains(m.Id) && m.DeletedDate == null)
+                    .Select(m => new
+                    {
+                        m.Id,
+                        SenderId = m.SenderId,
+                        m.Message,
+                        m.MessageType,
+                        ImageUrls = ChatMessageHelper.ParseImageUrls(m.ImageUrl),
+                        m.CreatedDate
+                    })
+                    .ToDictionaryAsync(x => x.Id, x => (object)x);
+
+            var msgIds = pageMessages.Select(m => m.Id).ToList();
+            var reactionSummary = msgIds.Count == 0
+                ? new List<dynamic>()
+                : await _dataContext.MessageReactionP2Ps
+                    .Where(r => msgIds.Contains(r.MessageId) && r.DeletedDate == null)
+                    .GroupBy(r => new { r.MessageId, r.Emoji })
+                    .Select(g => new
+                    {
+                        g.Key.MessageId,
+                        Reaction = new
+                        {
+                            Emoji = g.Key.Emoji,
+                            Count = g.Count(),
+                            UserIds = g.Select(x => x.UserId).ToList()
+                        }
+                    })
+                    .ToListAsync<dynamic>();
+
+            var reactionLookup = reactionSummary
+                .GroupBy(x => (int)x.MessageId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(x => (object)x.Reaction).ToList());
+
+            var messages = pageMessages
+                .Select(m => new
+                {
+                    m.Id,
+                    m.SenderId,
+                    m.ReceiverId,
+                    m.Message,
+                    m.MessageType,
                     ImageUrls = ChatMessageHelper.ParseImageUrls(m.ImageUrl),
                     m.CreatedDate,
                     m.UpdatedDate,
-                    IsEdited = m.IsEdited
+                    m.IsEdited,
+                    m.ReplyToMessageId,
+                    ReplyToMessage = m.ReplyToMessageId.HasValue && replyLookup.TryGetValue(m.ReplyToMessageId.Value, out var reply)
+                        ? reply
+                        : null,
+                    Reactions = reactionLookup.TryGetValue(m.Id, out var reactions) ? reactions : new List<object>(),
+                    m.IsForwarded,
+                    m.ForwardedFromMessageId,
+                    m.ForwardedFromSource
                 })
-                .ToListAsync();
+                .ToList();
 
             return ApiResult.Success(new
             {
@@ -62,6 +134,21 @@ namespace server.Service.Services.Chats
             if (receiver == null)
                 return ApiResult.Fail("Người nhận không tồn tại", "USER_NOT_FOUND");
 
+            // Validate reply if provided
+            object? replyToMessage = null;
+            if (model.ReplyToMessageId.HasValue)
+            {
+                var replyMessage = await _dataContext.ChatP2Ps
+                    .Where(m => m.Id == model.ReplyToMessageId.Value && m.DeletedDate == null)
+                    .Select(m => new { m.Id, m.SenderId, m.Message, m.CreatedDate })
+                    .FirstOrDefaultAsync();
+
+                if (replyMessage == null)
+                    return ApiResult.Fail("Tin nhắn reply không tồn tại", "REPLY_MESSAGE_NOT_FOUND");
+                
+                replyToMessage = replyMessage;
+            }
+
             var messageType = ChatMessageHelper.DetermineMessageType(model.MessageContent, model.ImageUrls);
             var imageUrlsString = ChatMessageHelper.JoinImageUrls(model.ImageUrls);
 
@@ -72,6 +159,7 @@ namespace server.Service.Services.Chats
                 Message = model.MessageContent ?? "",
                 MessageType = messageType,
                 ImageUrl = imageUrlsString,
+                ReplyToMessageId = model.ReplyToMessageId,
                 CreatedDate = Now
             };
 
@@ -86,6 +174,8 @@ namespace server.Service.Services.Chats
                 chatP2P.Message,
                 chatP2P.MessageType,
                 ImageUrls = model.ImageUrls ?? new List<string>(),
+                chatP2P.ReplyToMessageId,
+                ReplyToMessage = replyToMessage,
                 chatP2P.CreatedDate
             }, "Gửi tin nhắn thành công");
         }
@@ -112,6 +202,34 @@ namespace server.Service.Services.Chats
 
             await SaveChangesAsync();
 
+            object? replyToMessage = null;
+            if (chatMessage.ReplyToMessageId.HasValue)
+            {
+                replyToMessage = await _dataContext.ChatP2Ps
+                    .Where(m => m.Id == chatMessage.ReplyToMessageId.Value && m.DeletedDate == null)
+                    .Select(m => new
+                    {
+                        m.Id,
+                        SenderId = m.SenderId,
+                        m.Message,
+                        m.MessageType,
+                        ImageUrls = ChatMessageHelper.ParseImageUrls(m.ImageUrl),
+                        m.CreatedDate
+                    })
+                    .FirstOrDefaultAsync();
+            }
+
+            var reactions = await _dataContext.MessageReactionP2Ps
+                .Where(r => r.MessageId == chatMessage.Id && r.DeletedDate == null)
+                .GroupBy(r => r.Emoji)
+                .Select(g => new
+                {
+                    Emoji = g.Key,
+                    Count = g.Count(),
+                    UserIds = g.Select(x => x.UserId).ToList()
+                })
+                .ToListAsync<object>();
+
             return ApiResult.Success(new
             {
                 chatMessage.Id,
@@ -122,7 +240,10 @@ namespace server.Service.Services.Chats
                 ImageUrls = ChatMessageHelper.ParseImageUrls(chatMessage.ImageUrl),
                 chatMessage.CreatedDate,
                 chatMessage.UpdatedDate,
-                IsEdited = chatMessage.IsEdited
+                IsEdited = chatMessage.IsEdited,
+                chatMessage.ReplyToMessageId,
+                ReplyToMessage = replyToMessage,
+                Reactions = reactions
             }, "Chỉnh sửa tin nhắn thành công");
         }
 

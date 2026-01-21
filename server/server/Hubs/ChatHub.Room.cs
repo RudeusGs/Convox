@@ -31,7 +31,14 @@ namespace server.Hubs
             await Clients.Group($"room_{roomId}").SendAsync("UserLeft", new { UserId = userId.Value, RoomId = roomId });
         }
 
-        public async Task SendMessageToRoom(int roomId, string messageContent, List<string>? imageUrls = null)
+        /// <summary>
+        /// Gửi tin nhắn vào Room với hỗ trợ Reply
+        /// </summary>
+        /// <param name="roomId">ID phòng</param>
+        /// <param name="messageContent">Nội dung tin nhắn</param>
+        /// <param name="imageUrls">Danh sách URL ảnh (optional)</param>
+        /// <param name="replyToMessageId">ID tin nhắn được reply (optional)</param>
+        public async Task SendMessageToRoom(int roomId, string messageContent, List<string>? imageUrls = null, int? replyToMessageId = null)
         {
             var userId = GetUserId();
             if (!userId.HasValue)
@@ -45,7 +52,8 @@ namespace server.Hubs
                 RoomId = roomId,
                 SenderId = userId.Value,
                 MessageContent = messageContent ?? string.Empty,
-                ImageUrls = imageUrls ?? new List<string>()
+                ImageUrls = imageUrls ?? new List<string>(),
+                ReplyToMessageId = replyToMessageId
             };
 
             var result = await _roomChatService.SendMessageWithImagesToRoom(model);

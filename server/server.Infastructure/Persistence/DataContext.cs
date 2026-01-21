@@ -28,6 +28,11 @@ namespace server.Infrastructure.Persistence
         public DbSet<UserRoomControl> UserRoomControls { get; set; }
         public DbSet<ChatMessageBreakoutRoom> ChatMessageBreakoutRooms { get; set; }
         public DbSet<ChatP2P> ChatP2Ps { get; set; }
+        public DbSet<MessageReaction> MessageReactions { get; set; }
+        public DbSet<MessageReactionP2P> MessageReactionP2Ps { get; set; }
+        public DbSet<MessageReactionBreakroom> MessageReactionBreakrooms { get; set; }
+        public DbSet<PinnedMessage> PinnedMessages { get; set; }
+        public DbSet<PinnedMessageBreakroom> PinnedMessageBreakrooms { get; set; }
 
     }
 }

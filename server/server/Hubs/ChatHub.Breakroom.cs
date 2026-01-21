@@ -31,7 +31,14 @@ namespace server.Hubs
             await Clients.Group($"breakroom_{breakroomId}").SendAsync("UserLeft", new { UserId = userId.Value, BreakroomId = breakroomId });
         }
 
-        public async Task SendMessageToBreakroom(int breakroomId, string messageContent, List<string>? imageUrls = null)
+        /// <summary>
+        /// Gửi tin nhắn vào Breakroom với hỗ trợ Reply
+        /// </summary>
+        /// <param name="breakroomId">ID phòng con</param>
+        /// <param name="messageContent">Nội dung tin nhắn</param>
+        /// <param name="imageUrls">Danh sách URL ảnh (optional)</param>
+        /// <param name="replyToMessageId">ID tin nhắn được reply (optional)</param>
+        public async Task SendMessageToBreakroom(int breakroomId, string messageContent, List<string>? imageUrls = null, int? replyToMessageId = null)
         {
             var userId = GetUserId();
             if (!userId.HasValue)
@@ -45,7 +52,8 @@ namespace server.Hubs
                 BreakroomId = breakroomId,
                 SenderId = userId.Value,
                 MessageContent = messageContent ?? string.Empty,
-                ImageUrls = imageUrls ?? new List<string>()
+                ImageUrls = imageUrls ?? new List<string>(),
+                ReplyToMessageId = replyToMessageId
             };
 
             var result = await _breakroomChatService.SendMessageWithImagesToBreakroom(model);

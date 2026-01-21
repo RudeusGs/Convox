@@ -7,7 +7,8 @@ namespace server.Hubs
 {
     public partial class ChatHub
     {
-        public async Task SendMessageP2P(int receiverId, string messageContent, List<string>? imageUrls = null)
+       
+        public async Task SendMessageP2P(int receiverId, string messageContent, List<string>? imageUrls = null, int? replyToMessageId = null)
         {
             var userId = GetUserId();
             if (!userId.HasValue)
@@ -21,7 +22,8 @@ namespace server.Hubs
                 SenderId = userId.Value,
                 ReceiverId = receiverId,
                 MessageContent = messageContent ?? string.Empty,
-                ImageUrls = imageUrls ?? new List<string>()
+                ImageUrls = imageUrls ?? new List<string>(),
+                ReplyToMessageId = replyToMessageId
             };
 
             var result = await _p2pChatService.SendMessageWithImagesToP2P(model);
@@ -29,7 +31,7 @@ namespace server.Hubs
             if (result.IsSuccess)
             {
                 await Clients.Group($"user_{receiverId}").SendAsync("ReceiveP2PMessage", result.Data);
-                await Clients.Caller.SendAsync("ReceiveP2PMessage", result.Data);
+                await Clients.Group($"user_{userId.Value}").SendAsync("ReceiveP2PMessage", result.Data);
             }
             else
             {
@@ -104,11 +106,6 @@ namespace server.Hubs
             {
                 await Clients.Caller.SendAsync("Error", result.Message);
             }
-        }
-
-        private DataContext GetDataContext()
-        {
-            return (DataContext)Context.GetHttpContext()!.RequestServices.GetService(typeof(DataContext))!;
         }
     }
 }

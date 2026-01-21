@@ -49,6 +49,9 @@ namespace server.Service.Configurations
             services.AddScoped<IChatUploadService, ChatUploadService>();
             services.AddScoped<IBreakoutRoomService, BreakoutRoomService>();
             services.AddScoped<IQuizResponseService, QuizResponseService>();
+            services.AddScoped<IReactionService, ReactionService>();
+            services.AddScoped<IPinnedMessageService, PinnedMessageService>();
+            services.AddScoped<IForwardMessageService, ForwardMessageService>();
             #endregion
 
             return services;
